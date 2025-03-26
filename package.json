@@ -1,0 +1,39 @@
+{
+  "name": "nuxt-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "deploy-fb": "cd .output/server && rd /s /q node_modules && npm i && cd .. && firebase deploy",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-svg-core": "^6.7.2",
+    "@fortawesome/free-brands-svg-icons": "^6.7.2",
+    "@fortawesome/free-regular-svg-icons": "^6.7.2",
+    "@fortawesome/vue-fontawesome": "^3.0.8",
+    "@iconify/vue": "^4.3.0",
+    "@nuxtjs/tailwindcss": "^6.13.2",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.16",
+    "@vueuse/core": "^13.0.0",
+    "busboy": "^1.6.0",
+    "emoji-mart-vue-fast": "^15.0.4",
+    "emoji-picker-element": "^1.26.1",
+    "firebase": "^11.5.0",
+    "firebase-admin": "^13.2.0",
+    "firebase-functions": "^6.3.2",
+    "formidable": "^3.5.2",
+    "multiparty": "^4.2.3",
+    "nuxt": "^3.16.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/formidable": "^3.4.5",
+    "@types/multiparty": "^4.2.1"
+  }
+}
