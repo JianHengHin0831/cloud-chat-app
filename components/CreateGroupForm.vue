@@ -100,7 +100,6 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
 import { auth } from "~/firebase/firebase.js";
 
 const isOpen = ref(false); // 控制弹窗显示
@@ -163,10 +162,9 @@ const createGroup = async () => {
       method: "POST",
       body: formData,
       headers: {
-        "Authorization": `Bearer ${idToken}`
+        Authorization: `Bearer ${idToken}`,
       },
-    }
-    );
+    });
 
     // 显示成功消息
     message.value = {

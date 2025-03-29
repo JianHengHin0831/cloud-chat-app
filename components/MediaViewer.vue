@@ -39,8 +39,6 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-
 const isOpen = ref(false);
 const mediaUrl = ref("");
 const mediaType = ref("");

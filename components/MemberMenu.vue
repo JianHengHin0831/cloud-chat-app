@@ -61,7 +61,6 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
 import MemberDetailsModal from "@/components/GroupInfo/MemberDetailsModal.vue";
 import RemoveMemberModal from "@/components/GroupInfo/RemoveMemberModal.vue";
 

@@ -7,7 +7,7 @@
           class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center"
         >
           <img
-            :src="groupData?.photoUrl || '/images/user_avatar.png'"
+            :src="groupData?.photoUrl || '/images/group.png'"
             alt="Group Avatar"
             class="w-8 h-8 rounded-full"
           />
@@ -430,17 +430,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
-import {
-  collection,
-  query,
-  orderBy,
-  limit,
-  startAfter,
-  addDoc,
-  serverTimestamp,
-  onSnapshot,
-} from "firebase/firestore";
+import { ref as dbRef, push, set, update } from "firebase/database";
 import { db, auth } from "~/firebase/firebase.js";
 import GroupMenu from "~/components/GroupMenu/GroupMenu.vue";
 
@@ -630,52 +620,227 @@ const { arrivedState } = useScroll(chatContent);
 const uploadFiles = async () => {
   const user = auth.currentUser;
   if (!user) {
+    await logError(new Error("User not authenticated"), {
+      action: "file_upload",
+      chatroomId: props.selectedGroupId,
+    });
     throw new Error("User not authenticated");
   }
-  const idToken = await user.getIdToken();
-  for (const file of filesToUpload.value) {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("chatroomId", props.selectedGroupId);
 
-    //props.value.selectedGroupId
-    try {
-      await fetch("/api/upload", {
+  const startTime = Date.now();
+  const idToken = await user.getIdToken();
+  const userId = user.uid;
+
+  // 初始化E2EE
+  //const { encrypt } = useE2EE();
+  //await encrypt.initialize(user.uid);
+
+  try {
+    for (const file of filesToUpload.value) {
+      const fileUploadStart = Date.now();
+      const fileSizeMB = file.size / (1024 * 1024);
+
+      // 记录文件上传开始
+      await logEvent("file_upload_start", {
+        userId,
+        chatroomId: props.selectedGroupId,
+        fileType: file.type,
+        fileName: file.name,
+        fileSize: `${fileSizeMB.toFixed(2)}MB`,
+      });
+
+      // 加密文件
+      // const { encryptedFile, metadata } = await encrypt.encryptFile(
+      //   props.selectedGroupId,
+      //   file
+      // );
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("chatroomId", props.selectedGroupId);
+      // formData.append("file", encryptedFile);
+      // formData.append("metadata", metadata);
+      // formData.append("chatroomId", props.selectedGroupId);
+
+      const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
-        headers: {
-          Authorization: `Bearer ${idToken}`, // 将 ID Token 作为请求头传递
-        },
+        headers: { Authorization: `Bearer ${idToken}` },
       });
-    } catch (error) {
-      console.error("Error uploading file:", error);
-    }
-  }
 
-  // 清空文件列表
-  filesToUpload.value = [];
-  showFileUpload.value = false;
+      const duration = Date.now() - fileUploadStart;
+
+      // 记录上传指标
+      await trackMetric("file_upload_duration", duration, {
+        file_type: file.type,
+        file_size: `${fileSizeMB.toFixed(2)}MB`,
+        status: response.ok ? "success" : "failed",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+
+      // 记录单个文件上传成功
+      await logEvent("file_upload_success", {
+        userId,
+        chatroomId: props.selectedGroupId,
+        fileType: file.type,
+        duration,
+        fileSize: `${fileSizeMB.toFixed(2)}MB`,
+      });
+    }
+
+    // 记录批量上传完成
+    await logEvent("batch_file_upload_complete", {
+      userId,
+      chatroomId: props.selectedGroupId,
+      totalFiles: filesToUpload.value.length,
+      totalDuration: Date.now() - startTime,
+    });
+  } catch (error) {
+    // 记录详细错误信息
+    await logError(error, {
+      userId,
+      chatroomId: props.selectedGroupId,
+      action: "file_upload",
+      fileCount: filesToUpload.value.length,
+    });
+
+    // 用户友好提示
+    // showErrorToast("文件上传失败，请重试");
+  } finally {
+    filesToUpload.value = [];
+    showFileUpload.value = false;
+  }
 };
 
 // 發送消息
+// const sendMessage = async () => {
+//   if (newMessage.value.trim() === "") return;
+
+//   const user = auth.currentUser;
+//   if (!user) {
+//     await logError(new Error("User not authenticated when sending message"), {
+//       action: "message_send",
+//       chatroomId: props.selectedGroupId,
+//     });
+//     return;
+//   }
+
+//   const startTime = Date.now();
+//   const messageContent = newMessage.value;
+//   const messageId = Math.random().toString(36).substring(2, 9); // 生成临时消息ID
+
+//   try {
+//     // 记录消息发送开始
+//     await logEvent("message_send_start", {
+//       userId: user.uid,
+//       chatroomId: props.selectedGroupId,
+//       messageId,
+//       messageLength: messageContent.length,
+//     });
+
+//     // 初始化E2EE
+//     const { encrypt } = useE2EE();
+//     await encrypt.initialize(user.uid);
+
+//     // 加密消息内容
+//     const encryptedContent = await encrypt(
+//       props.selectedGroupId,
+//       messageContent
+//     );
+
+//     await push(dbRef(db, `chatrooms/${props.selectedGroupId}/messages`), {
+//       senderId: user.uid,
+//       messageContent: encryptedContent,
+//       messageType: "text",
+//       encrypted: true,
+//       createdAt: { ".sv": "timestamp" },
+//     });
+
+//     const duration = Date.now() - startTime;
+
+//     // 记录性能指标
+//     await trackMetric("message_send_duration", duration, {
+//       message_type: "text",
+//       message_length: messageContent.length,
+//       status: "success",
+//     });
+
+//     // 记录成功日志
+//     await logEvent("message_send_success", {
+//       userId: user.uid,
+//       chatroomId: props.selectedGroupId,
+//       messageId,
+//       duration,
+//       messageLength: messageContent.length,
+//     });
+
+//     newMessage.value = "";
+//   } catch (error) {
+//     const duration = Date.now() - startTime;
+
+//     // 记录详细错误信息
+//     await logError(error, {
+//       userId: user?.uid,
+//       chatroomId: props.selectedGroupId,
+//       messageId,
+//       messageLength: messageContent.length,
+//       duration,
+//       action: "message_send",
+//     });
+
+//     await trackMetric("message_send_duration", duration, {
+//       message_type: "text",
+//       message_length: messageContent.length,
+//       status: "failed",
+//     });
+
+//     // 用户友好提示
+//     showErrorToast("消息发送失败，请重试");
+//   }
+// };
+import { getDatabase } from "firebase/database";
+
 const sendMessage = async () => {
   if (newMessage.value.trim() === "") return;
 
   try {
-    const senderId = auth.currentUser?.uid;
+    // 1. 确保用户已认证
+    await auth.authStateReady();
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-    await addDoc(
-      collection(db, "chatroom", props.selectedGroupId, "messages"),
-      {
-        senderId: senderId,
-        messageContent: newMessage.value,
-        messageType: "text",
-        createdAt: serverTimestamp(),
-      }
+    // 2. 创建数据库引用
+    const db = getDatabase();
+    const messagesRef = dbRef(
+      db,
+      `chatrooms/${props.selectedGroupId}/messages`
     );
-    newMessage.value = ""; // 清空輸入框
+    const newMessageRef = push(messagesRef);
+
+    // 3. 准备消息数据
+    const messageData = {
+      senderId: user.uid,
+      messageContent: newMessage.value.trim(),
+      messageType: "text",
+      createdAt: Date.now(),
+    };
+
+    // 4. 发送消息
+    await set(newMessageRef, messageData);
+
+    // 6. 清空输入框
+    newMessage.value = "";
   } catch (error) {
-    console.error("Error sending message:", error);
+    console.error("Error sending message:", {
+      error: error.message,
+      user: auth.currentUser?.uid,
+      groupId: props.selectedGroupId,
+    });
   }
 };
 

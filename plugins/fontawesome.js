@@ -9,6 +9,8 @@ import {
   faFileText,
   faFile,
   faFilePdf,
+  faFileImage,
+  faFileVideo,
 } from "@fortawesome/free-regular-svg-icons";
 
 // 添加圖標到庫中
@@ -20,7 +22,9 @@ library.add(
   faFilePowerpoint,
   faFileText,
   faFile,
-  faFilePdf
+  faFilePdf,
+  faFileImage,
+  faFileVideo
 );
 
 // 防止 Font Awesome 自動添加 CSS

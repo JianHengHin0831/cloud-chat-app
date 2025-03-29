@@ -73,15 +73,13 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
 import {
-  doc,
-  getDoc,
-  collection,
+  ref as dbRef,
+  get,
   query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+  orderByChild,
+  equalTo,
+} from "firebase/database";
 import { auth, db } from "~/firebase/firebase.js";
 
 const groupID = ref(""); // 用户输入的群组 ID
@@ -93,46 +91,60 @@ watch(groupID, async (newValue) => {
   if (newValue && typeof newValue === "string") {
     try {
       // 查询群组信息
-      const groupDoc = await getDoc(doc(db, "chatroom", newValue));
-      if (groupDoc.exists()) {
-        const data = groupDoc.data();
+      const groupRef = dbRef(db, `chatroom/${newValue}`);
+      const groupSnapshot = await get(groupRef);
+      if (groupSnapshot.exists()) {
+        const data = groupSnapshot.val();
 
         // 获取管理员信息
+        const chatroomUsersRef = dbRef(db, "chatroom_user");
         const adminQuery = query(
-          collection(db, "chatroom_user"),
-          where("chatroomId", "==", newValue), // 匹配 chatroomId
-          where("role", "==", "admin") // 匹配 role 为 admin
+          chatroomUsersRef,
+          orderByChild("chatroomId"),
+          equalTo(newValue)
         );
-        const adminSnapshot = await getDocs(adminQuery);
+        const adminSnapshot = await get(adminQuery);
 
         let adminName = "Unknown"; // 默认值
-        if (!adminSnapshot.empty) {
-          const adminData = adminSnapshot.docs[0].data(); // 获取第一个匹配的文档
-          const adminUserDoc = await getDoc(doc(db, "users", adminData.userId)); // 获取用户信息
-          if (adminUserDoc.exists()) {
-            adminName = adminUserDoc.data().username; // 获取管理员用户名
+        if (adminSnapshot.exists()) {
+          const adminData = Object.values(adminSnapshot.val()).find(
+            (user) => user.role === "admin"
+          );
+          if (adminData) {
+            const adminUserRef = dbRef(db, `users/${adminData.userId}`);
+            const adminUserSnapshot = await get(adminUserRef);
+            if (adminUserSnapshot.exists()) {
+              adminName = adminUserSnapshot.val().username;
+            }
           }
         }
 
         // 获取群组成员数量
         const membersQuery = query(
-          collection(db, "chatroom_user"),
-          where("chatroomId", "==", newValue)
+          chatroomUsersRef,
+          orderByChild("chatroomId"),
+          equalTo(newValue)
         );
-        const membersSnapshot = await getDocs(membersQuery);
-        const memberCount = membersSnapshot.size;
+        const membersSnapshot = await get(membersQuery);
+        const memberCount = membersSnapshot.exists()
+          ? Object.keys(membersSnapshot.val()).length
+          : 0;
 
         // 检查当前用户是否已经加入群组
         const user = auth.currentUser;
         let isJoined = false;
         if (user) {
           const userQuery = query(
-            collection(db, "chatroom_user"),
-            where("chatroomId", "==", newValue),
-            where("userId", "==", user.uid)
+            chatroomUsersRef,
+            orderByChild("userId"),
+            equalTo(user.uid)
           );
-          const userSnapshot = await getDocs(userQuery);
-          isJoined = !userSnapshot.empty;
+          const userSnapshot = await get(userQuery);
+          isJoined =
+            userSnapshot.exists() &&
+            Object.values(userSnapshot.val()).some(
+              (member) => member.chatroomId === newValue
+            );
         }
 
         // 更新群组信息

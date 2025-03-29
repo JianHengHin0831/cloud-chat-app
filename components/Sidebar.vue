@@ -33,11 +33,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { Icon } from "@iconify/vue";
 import { auth } from "~/firebase/firebase.js";
-import { doc, getDoc } from "firebase/firestore";
+import { get, ref as dbRef } from "firebase/database";
 import { onAuthStateChanged } from "firebase/auth";
 
 // 获取当前路由
@@ -59,34 +58,66 @@ onMounted(() => {
   });
 });
 
-// 从 Firestore 获取用户头像
 const fetchUserAvatar = async () => {
   const user = auth.currentUser;
-  if (user) {
-    // 检查用户是否通过 Google 登录
-    if (
-      user.providerData.some((provider) => provider.providerId === "google.com")
-    ) {
-      // 使用 Google 的头像
-      avatarUrl.value = user.photoURL;
-    } else {
-      // 从 Firestore 获取用户信息
-      const userDocRef = doc(db, "users", user.uid);
-      const userDoc = await getDoc(userDocRef);
+  if (!user) {
+    avatarUrl.value = "/images/user_avatar.png";
+    return;
+  }
 
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        avatarUrl.value = userData.avatarUrl || "/images/user_avatar.png"; // 使用 Firestore 中的头像或默认头像
-      } else {
-        // 如果用户文档不存在，使用默认头像
-        avatarUrl.value = "/images/user_avatar.png";
-      }
+  // 检查用户是否通过 Google 登录
+  if (
+    user.providerData.some((provider) => provider.providerId === "google.com")
+  ) {
+    // 使用 Google 的头像
+    avatarUrl.value = user.photoURL;
+    return;
+  }
+
+  try {
+    // 从 Realtime Database 获取用户数据
+    const userRef = dbRef(db, `users/${user.uid}`);
+    const userSnapshot = await get(userRef);
+
+    if (userSnapshot.exists()) {
+      const userData = userSnapshot.val();
+      avatarUrl.value = userData.avatarUrl || "/images/user_avatar.png";
+    } else {
+      // 如果用户数据不存在，使用默认头像
+      avatarUrl.value = "/images/user_avatar.png";
     }
-  } else {
-    // 用户未登录，使用默认头像
+  } catch (error) {
+    console.error("Error fetching user avatar:", error);
     avatarUrl.value = "/images/user_avatar.png";
   }
 };
+
+// const fetchUserAvatar = async () => {
+//   const user = auth.currentUser;
+//   if (user) {
+//     // 检查用户是否通过 Google 登录
+//     if (
+//       user.providerData.some((provider) => provider.providerId === "google.com")
+//     ) {
+//       // 使用 Google 的头像
+//       avatarUrl.value = user.photoURL;
+//     } else {
+//       const userDocRef = doc(db, "users", user.uid);
+//       const userDoc = await getDoc(userDocRef);
+
+//       if (userDoc.exists()) {
+//         const userData = userDoc.data();
+//         avatarUrl.value = userData.avatarUrl || "/images/user_avatar.png";
+//       } else {
+//         // 如果用户文档不存在，使用默认头像
+//         avatarUrl.value = "/images/user_avatar.png";
+//       }
+//     }
+//   } else {
+//     // 用户未登录，使用默认头像
+//     avatarUrl.value = "/images/user_avatar.png";
+//   }
+// };
 
 // 监听 Firebase Auth 状态变化
 onMounted(() => {

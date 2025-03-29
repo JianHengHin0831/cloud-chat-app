@@ -1,6 +1,5 @@
 <template>
   <div class="flex h-screen w-full">
-    <SeoMeta :title="title" :description="description" no-index />
     <!-- Left side with gradient background -->
     <div
       class="hidden md:flex md:w-1/2 relative bg-gradient-to-br from-purple-500 to-pink-500 p-10 flex-col justify-center"
@@ -96,8 +95,9 @@
             <input
               type="text"
               v-model="email"
+              autocomplete="email"
               class="bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-md pl-10 pr-4 py-3 w-full"
-              placeholder="Username"
+              placeholder="Email"
             />
           </div>
           <p v-if="emailError" class="text-sm text-red-500 mt-1">
@@ -124,6 +124,7 @@
             </div>
             <input
               type="password"
+              autocomplete="current-password"
               class="bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-md pl-10 pr-4 py-3 w-full"
               placeholder="Password"
               v-model="password"
@@ -203,10 +204,9 @@ import {
   setPersistence,
   browserLocalPersistence,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { ref as dbRef, set, get } from "firebase/database";
 
 //SEO meta
-import SeoMeta from "@/components/SEOMeta.vue";
 const title = "Login to Cloudtalk - Chat Room Application";
 const description =
   "Login to access your Cloudtalk account and start chatting with people from around the world in real-time.";
@@ -225,8 +225,56 @@ const emailError = ref("");
 const passwordError = ref("");
 const isLoading = ref(false);
 const router = useRouter();
+import { useFcmToken } from "~/composables/useFcmToken";
+const { isSupported, getPermissionStatus, requestPermission, updateToken } =
+  useFcmToken();
 
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000;
+const { sendNotification } = useNotification();
+
+const showNotificationPrompt = ref(false);
+
+// Check notification status after login
+const checkNotifications = async (userId) => {
+  if (!isSupported()) return;
+
+  const status = getPermissionStatus();
+  if (status === "granted") {
+    await updateToken(userId);
+  } else if (status === "default") {
+    showNotificationPrompt.value = true;
+  }
+};
+
+// Call this from user gesture only
+const enableNotifications = async () => {
+  const token = await requestPermission();
+  if (token) {
+    await updateToken(currentUser.value.uid);
+    showNotificationPrompt.value = false;
+  }
+};
+
+const sendTestNotification = async (userId) => {
+  try {
+    if (!auth.currentUser) {
+      throw new Error("No authenticated user");
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    await sendNotification({
+      userId: userId,
+      isSaveNotification: true,
+      notification: {
+        title: "Welcome to CloudTalk",
+        body: "You've successfully logged in",
+        chatroomId: "welcome_chat",
+      },
+    });
+  } catch (error) {
+    console.error("Notification sending error:", error);
+  }
+};
 
 const handleLogin = async () => {
   try {
@@ -242,6 +290,7 @@ const handleLogin = async () => {
       password.value
     );
     const user = userCredential.user;
+    await checkNotifications(user.uid);
 
     localStorage.setItem("loginTime", new Date().toISOString());
 
@@ -281,13 +330,13 @@ const signInWithGoogle = async () => {
     localStorage.setItem("loginTime", new Date().toISOString());
     const user = result.user;
 
-    // 检查 Firestore 中是否存在该用户
-    const userDocRef = doc(db, "users", user.uid); // 用户文档引用
-    const userDoc = await getDoc(userDocRef);
+    // 检查 Realtime Database 中是否存在该用户
+    const userRef = dbRef(db, `users/${user.uid}`); // 用户引用
+    const userSnapshot = await get(userRef);
 
-    if (!userDoc.exists()) {
-      // 如果用户不存在，则创建用户文档
-      await setDoc(userDocRef, {
+    if (!userSnapshot.exists()) {
+      // 如果用户不存在，则创建用户数据
+      await set(userRef, {
         username: user.displayName || "Anonymous", // 用户名（如果没有则设为 "Anonymous"）
         email: user.email, // 电子邮件
         createdAt: new Date().toISOString(), // 创建时间
@@ -296,9 +345,13 @@ const signInWithGoogle = async () => {
         avatarUrl: user.photoURL || null, // 头像 URL（如果没有则设为 null）
         registerMethod: "google", // 注册方式
       });
+      await checkNotifications(user.uid);
+      await sendTestNotification(user.uid);
 
       await navigateTo("/");
     } else {
+      await checkNotifications(user.uid);
+      await sendTestNotification(user.uid);
       await navigateTo("/");
     }
   } catch (error) {

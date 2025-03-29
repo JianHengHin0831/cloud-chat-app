@@ -321,7 +321,7 @@ import {
   updateProfile,
   sendEmailVerification,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { ref as dbRef, set, get } from "firebase/database";
 import { useRouter } from "vue-router";
 
 //SEO Meta
@@ -387,41 +387,43 @@ const isFormValid = computed(() => {
   );
 });
 
-// 檢查用戶是否已註冊
+// 检查用户是否已注册
 const checkIfUserExists = async (email) => {
-  const usersRef = doc(db, "users", email); // 使用電子郵件作為文檔 ID
-  const docSnap = await getDoc(usersRef);
-  return docSnap.exists();
+  // 在 RTDB 中查询用户，使用邮箱作为键（需要先编码）
+  const emailKey = encodeEmailForRTDB(email);
+  const userRef = dbRef(db, `users/emailToUid/${emailKey}`);
+  const snapshot = await get(userRef);
+  return snapshot.exists();
 };
 
-// 處理註冊
+// 处理注册
 const handleRegister = async (event) => {
   event.preventDefault();
 
   try {
-    // 驗證表單
+    // 验证表单
     validateEmail();
     validatePassword();
     if (!isFormValid.value) {
       return;
     }
 
-    // 檢查密碼和確認密碼是否一致
+    // 检查密码和确认密码是否一致
     if (password.value !== confirmPassword.value) {
       passwordError.value = "Password and confirm password must match.";
       return;
     }
 
-    // 檢查用戶是否已註冊
+    // 检查用户是否已注册
     const userExists = await checkIfUserExists(email.value);
     if (userExists) {
       registrationError.value = "This email is already registered.";
       return;
     }
 
-    isLoading.value = true; // 開始加載
+    isLoading.value = true; // 开始加载
 
-    // 使用 Firebase Authentication 創建用戶
+    // 使用 Firebase Authentication 创建用户
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email.value,
@@ -429,42 +431,131 @@ const handleRegister = async (event) => {
     );
     const user = userCredential.user;
 
-    // 發送驗證郵件
+    // 发送验证邮件
     await sendEmailVerification(user);
     verificationSent.value = true;
 
-    // 監聽用戶的驗證狀態
+    // 监听用户的验证状态
     const interval = setInterval(async () => {
       await user.reload();
       if (user.emailVerified) {
         clearInterval(interval);
 
-        // 更新用戶的顯示名稱
+        // 更新用户的显示名称
         await updateProfile(user, {
           displayName: displayName.value,
         });
 
-        // 將用戶信息存儲到 Firestore
-        await setDoc(doc(db, "users", user.uid), {
-          username: displayName.value, // 用戶名
-          email: user.email, // 電子郵件
-          createdAt: new Date().toISOString(), // 創建時間
-          joinedAt: new Date().toISOString(), // 加入時間
-          emailVerified: user.emailVerified, // 郵件驗證狀態
-          avatarUrl: null, // 頭像 URL（默認為 null）
-          registerMethod: "email", // 註冊方式
-        });
+        // 将用户信息存储到 Realtime Database
+        const userData = {
+          username: displayName.value,
+          email: user.email,
+          createdAt: { ".sv": "timestamp" }, // 使用服务器时间戳
+          joinedAt: { ".sv": "timestamp" },
+          emailVerified: user.emailVerified,
+          avatarUrl: null,
+          registerMethod: "email",
+          lastLogin: { ".sv": "timestamp" },
+        };
+
+        // 写入多个路径的原子操作
+        const updates = {};
+        updates[`users/${user.uid}`] = userData;
+        updates[`users/emailToUid/${encodeEmailForRTDB(user.email)}`] =
+          user.uid;
+        updates[`usernames/${encodeUsernameForRTDB(displayName.value)}`] =
+          user.uid;
+
+        await set(dbRef(db), updates);
 
         router.push("/login");
       }
-    }, 1000); // 每秒檢查一次驗證狀態
+    }, 1000); // 每秒检查一次验证状态
   } catch (error) {
     console.error("Registration error:", error);
     registrationError.value = `Registration failed: ${error.message}`;
   } finally {
-    isLoading.value = false; // 結束加載
+    isLoading.value = false; // 结束加载
   }
 };
+
+// // 檢查用戶是否已註冊
+// const checkIfUserExists = async (email) => {
+//   const usersRef = doc(db, "users", email); // 使用電子郵件作為文檔 ID
+//   const docSnap = await getDoc(usersRef);
+//   return docSnap.exists();
+// };
+
+// // 處理註冊
+// const handleRegister = async (event) => {
+//   event.preventDefault();
+
+//   try {
+//     // 驗證表單
+//     validateEmail();
+//     validatePassword();
+//     if (!isFormValid.value) {
+//       return;
+//     }
+
+//     // 檢查密碼和確認密碼是否一致
+//     if (password.value !== confirmPassword.value) {
+//       passwordError.value = "Password and confirm password must match.";
+//       return;
+//     }
+
+//     // 檢查用戶是否已註冊
+//     const userExists = await checkIfUserExists(email.value);
+//     if (userExists) {
+//       registrationError.value = "This email is already registered.";
+//       return;
+//     }
+
+//     isLoading.value = true; // 開始加載
+
+//     // 使用 Firebase Authentication 創建用戶
+//     const userCredential = await createUserWithEmailAndPassword(
+//       auth,
+//       email.value,
+//       password.value
+//     );
+//     const user = userCredential.user;
+
+//     // 發送驗證郵件
+//     await sendEmailVerification(user);
+//     verificationSent.value = true;
+
+//     // 監聽用戶的驗證狀態
+//     const interval = setInterval(async () => {
+//       await user.reload();
+//       if (user.emailVerified) {
+//         clearInterval(interval);
+
+//         // 更新用戶的顯示名稱
+//         await updateProfile(user, {
+//           displayName: displayName.value,
+//         });
+
+//         await setDoc(doc(db, "users", user.uid), {
+//           username: displayName.value, // 用戶名
+//           email: user.email, // 電子郵件
+//           createdAt: new Date().toISOString(), // 創建時間
+//           joinedAt: new Date().toISOString(), // 加入時間
+//           emailVerified: user.emailVerified, // 郵件驗證狀態
+//           avatarUrl: null, // 頭像 URL（默認為 null）
+//           registerMethod: "email", // 註冊方式
+//         });
+
+//         router.push("/login");
+//       }
+//     }, 1000); // 每秒檢查一次驗證狀態
+//   } catch (error) {
+//     console.error("Registration error:", error);
+//     registrationError.value = `Registration failed: ${error.message}`;
+//   } finally {
+//     isLoading.value = false; // 結束加載
+//   }
+// };
 // Password visibility toggles
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);

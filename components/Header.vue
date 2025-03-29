@@ -95,9 +95,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
 import { Icon } from "@iconify/vue";
-import { auth } from "~/firebase/firebase.js"; // 假设你已经配置了 Firebase
+import { auth, db } from "~/firebase/firebase.js";
+import { getMessaging, getToken } from "firebase/messaging";
+import { ref as dbRef, update, get } from "firebase/database";
 import {
   getStorage,
   ref as storageRef,
@@ -189,6 +190,26 @@ const toggleUserMenu = () => {
 // Handle logout
 const handleLogout = async () => {
   try {
+    const user = auth.currentUser;
+    if (user) {
+      const messaging = getMessaging();
+      const fcmToken = await getToken(messaging);
+      if (fcmToken) {
+        // 获取当前用户的FCM tokens
+        const userRef = dbRef(db, `users/${user.uid}/fcmTokens`);
+        const snapshot = await get(userRef);
+
+        if (snapshot.exists()) {
+          const tokens = snapshot.val();
+          // 移除指定的token
+          if (tokens && tokens[fcmToken]) {
+            const updates = {};
+            updates[`users/${user.uid}/fcmTokens/${fcmToken}`] = null;
+            await update(dbRef(db), updates);
+          }
+        }
+      }
+    }
     await auth.signOut();
     showUserMenu.value = false;
     navigateTo("/login");

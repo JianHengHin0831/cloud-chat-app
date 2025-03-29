@@ -1,7 +1,11 @@
 <template>
-  <div class="flex flex-col p-4 bg-white shadow-md rounded-lg my-3 mx-2 h-[calc(100vh-5.5rem)]">
+  <div
+    class="flex flex-col p-4 bg-white shadow-md rounded-lg my-3 mx-2 h-[calc(100vh-5.5rem)]"
+  >
     <!-- Search Bar -->
-    <div class="flex flex-row items-center px-1 py-1 mb-4 bg-gray-200 rounded-lg">
+    <div
+      class="flex flex-row items-center px-1 py-1 mb-4 bg-gray-200 rounded-lg"
+    >
       <svg
         class="w-5 h-5 text-black ml-3"
         xmlns="http://www.w3.org/2000/svg"
@@ -25,7 +29,7 @@
     </div>
 
     <!-- Pinned Groups -->
-    <div class="flex-1 overflow-y-auto pb-4 ">
+    <div class="flex-1 overflow-y-auto pb-4">
       <div v-if="filteredPinnedGroups.length">
         <h3 class="text-gray-600 font-semibold pb-2 border-b">Pin Groups</h3>
         <ul>
@@ -93,7 +97,6 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
 import GroupListItem from "@/components/GroupListItem.vue";
 import JoinPrivateGroupModal from "@/components/JoinPrivateGroupModal.vue";
 const showJoinModal = ref(false); // 是否显示弹窗

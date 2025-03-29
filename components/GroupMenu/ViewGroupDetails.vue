@@ -74,8 +74,6 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-
 // 定义 props
 const props = defineProps({
   groupData: Object,

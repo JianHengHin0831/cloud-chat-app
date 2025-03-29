@@ -1,0 +1,3 @@
+export const encodeEmailForRTDB = (email) => {
+  return email.replace(/\./g, ",").replace(/@/g, "_at_");
+};

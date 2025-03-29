@@ -67,8 +67,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-import { doc, updateDoc } from "firebase/firestore";
+import { ref as dbRef, update } from "firebase/database";
 import { db } from "~/firebase/firebase.js";
 
 const props = defineProps({
@@ -88,7 +87,8 @@ const showErrorMessage = ref(false);
 const updateGroup = async () => {
   try {
     // 更新群组信息
-    await updateDoc(doc(db, "chatroom", props.groupData.id), {
+    const groupRef = dbRef(db, `chatroom/${props.groupData.id}`);
+    await update(groupRef, {
       name: form.value.name,
       description: form.value.description,
       chatType: form.value.chatType,

@@ -1,5 +1,7 @@
 <!-- components/SeoMeta.vue -->
-<script setup lang="ts">
+<template></template>
+
+<script setup>
 const props = defineProps({
   title: {
     type: String,
@@ -53,5 +55,3 @@ useHead({
   link: [{ rel: "canonical", href: fullUrl.value }],
 });
 </script>
-
-<template></template>

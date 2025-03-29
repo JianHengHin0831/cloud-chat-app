@@ -48,7 +48,13 @@ import Sidebar from "@/components/Sidebar.vue";
 import SearchBar from "@/components/SearchBar.vue";
 import GroupCard from "@/components/GroupCard.vue";
 import CreateGroupForm from "~/components/CreateGroupForm.vue";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import {
+  ref as dbRef,
+  get,
+  query,
+  orderByChild,
+  equalTo,
+} from "firebase/database";
 import { db } from "~/firebase/firebase.js";
 
 //SEO Meta
@@ -75,46 +81,79 @@ const groups = ref([]);
 // 获取所有 public 群组信息
 const fetchPublicGroups = async () => {
   try {
-    // 获取所有 chatType 为 public 的群组
-    const chatroomsQuery = query(
-      collection(db, "chatroom"),
-      where("chatType", "==", "public")
-    );
-    const chatroomsSnapshot = await getDocs(chatroomsQuery);
-
-    // 遍历群组，获取每个群组的成员数量
-    const groupsData = [];
-    for (const doc of chatroomsSnapshot.docs) {
-      const chatroomData = doc.data();
-
-      // 获取该群组的成员数量
-      const chatroomUsersQuery = query(
-        collection(db, "chatroom_user"),
-        where("chatroomId", "==", doc.id)
-      );
-      const chatroomUsersSnapshot = await getDocs(chatroomUsersQuery);
-      const membersCount = chatroomUsersSnapshot.size;
-
-      // 构造群组信息
-      groupsData.push({
-        id: doc.id, // 群组 ID
-        name: chatroomData.name, // 群组名称
-        members: membersCount, // 成员数量
-        desc: chatroomData.description || "No description", // 群组描述
-        groupUrl: chatroomData.photoUrl || "", // 群组头像 URL
-      });
+    // 1. 确保认证完成
+    await auth.authStateReady();
+    const user = auth.currentUser;
+    if (!user) {
+      throw new Error("User not authenticated");
     }
 
-    // 更新 groups 数据
-    groups.value = groupsData;
+    // 2. 构造查询
+    const chatroomsRef = dbRef(db, "chatrooms");
+    const publicGroupsQuery = query(
+      chatroomsRef,
+      orderByChild("chatType"),
+      equalTo("public")
+    );
+
+    // 3. 执行查询
+    const chatroomsSnapshot = await get(publicGroupsQuery);
+
+    if (!chatroomsSnapshot.exists()) {
+      return [];
+    }
+
+    // 4. 获取成员数据（优化查询）
+    const membersPromises = [];
+    chatroomsSnapshot.forEach((childSnapshot) => {
+      const chatroomId = childSnapshot.key;
+      membersPromises.push(
+        get(dbRef(db, `chatroom_users/${chatroomId}`)).then((snap) => ({
+          id: chatroomId,
+          count: snap.exists() ? Object.keys(snap.val()).length : 0,
+        }))
+      );
+    });
+
+    const membersData = await Promise.all(membersPromises);
+    const membersMap = new Map(membersData.map((m) => [m.id, m.count]));
+
+    // 5. 处理数据
+    const groupsData = [];
+    chatroomsSnapshot.forEach((childSnapshot) => {
+      const chatroomData = childSnapshot.val();
+      groupsData.push({
+        id: childSnapshot.key,
+        name: chatroomData.name || "Unnamed Group",
+        members: membersMap.get(childSnapshot.key) || 0,
+        desc: chatroomData.description || "No description",
+        groupUrl: chatroomData.photoUrl || "",
+        lastActive: chatroomData.lastActive || 0,
+      });
+    });
+
+    // 6. 排序并返回
+    groups.value = groupsData.sort((a, b) => b.lastActive - a.lastActive);
   } catch (error) {
-    console.error("Error fetching public groups:", error);
+    console.error("Database error:", {
+      code: error.code,
+      message: error.message,
+      user: auth.currentUser?.uid,
+    });
+    throw error; // 或者返回空数组 return [];
   }
 };
 
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "~/firebase/firebase.js";
+
 // 在组件挂载时获取数据
 onMounted(() => {
-  fetchPublicGroups();
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      fetchPublicGroups();
+    }
+  });
 });
 
 const filteredGroups = computed(() => {

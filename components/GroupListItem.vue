@@ -21,9 +21,9 @@
         :class="isActive ? 'bg-green-500' : 'bg-gray-400'"
       ></span>
 
-      <span class="text-xs text-gray-400 leading-none flex-shrink-0">{{
-        formatTime(group.lastMessageTime)
-      }}</span>
+      <span class="text-xs text-gray-400 leading-none flex-shrink-0"
+        >{{ formatTime(group.lastMessageTime) }}
+      </span>
     </div>
   </div>
 </template>
@@ -56,11 +56,7 @@ const isActive = computed(() => {
   // 獲取當前時間
   const currentTime = new Date();
 
-  // 將 Firestore Timestamp 轉換為 JavaScript Date
-  const messageTime = new Date(
-    props.group.lastMessageTime.seconds * 1000 +
-      props.group.lastMessageTime.nanoseconds / 1000000
-  );
+  const messageTime = new Date(props.group.lastMessageTime);
 
   // 計算時間差（單位：毫秒）
   const timeDiff = currentTime - messageTime;
@@ -70,15 +66,12 @@ const isActive = computed(() => {
 });
 
 const formatTime = (timestamp) => {
-  if (!timestamp || !timestamp.seconds) return "";
+  if (!timestamp) return "";
 
   // 獲取當前時間
   const currentTime = new Date();
 
-  // 將 Firestore Timestamp 轉換為 JavaScript Date
-  const messageTime = new Date(
-    timestamp.seconds * 1000 + timestamp.nanoseconds / 1000000
-  );
+  const messageTime = new Date(timestamp);
 
   // 計算時間差（單位：毫秒）
   const timeDiff = currentTime - messageTime;

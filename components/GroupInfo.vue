@@ -19,6 +19,7 @@
           </button>
           <button
             @click="openAddMemberModal"
+            v-if="checkGroupAdmin"
             class="ml-2 text-blue-500 text-sm"
           >
             Add Members
@@ -96,7 +97,7 @@
             <span class="slider"></span>
           </label>
         </div>
-
+        <span>{{ checkGroupAdmin }}dd{{ currentRole }}</span>
         <div class="flex items-center justify-between mt-2">
           <span class="text-sm">Pin Conversation</span>
           <label class="switch">
@@ -144,20 +145,19 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
 import {
-  collection,
+  ref as dbRef,
   query,
-  where,
-  getDocs,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
+  orderByChild,
+  equalTo,
+  get,
+  update,
+  remove,
+} from "firebase/database";
 import { db } from "~/firebase/firebase.js";
 import MemberMenu from "@/components/MemberMenu.vue";
 import AddMemberModal from "@/components/GroupInfo/AddMemberModal.vue";
 import { formatTime } from "@/utils/formatTime";
-import { getFileIcon, getFileName, getFileIconColor } from "@/utils/fileUtils";
 
 const selectedMember = ref(null);
 //const currentMember = ref(null);
@@ -187,56 +187,138 @@ const closeAddMemberModal = () => {
   isAddMemberModalOpen.value = false;
 };
 
+const { sendNotification } = useNotification();
+
 const handleAddMember = async (userId) => {
   try {
-    // 获取用户的FCM token
-    const userDoc = await getDoc(doc(db, "users", userId));
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      const fcmToken = userData.fcmToken;
-
-      if (fcmToken) {
-        // 发送通知给新成员
-        await sendNotification(
-          userId,
-          "Group Invitation",
-          "You have been added to a new group"
-        );
-      }
-    }
+    // 发送通知
+    await sendNotification({
+      userId: userId, // 替换为实际用户ID
+      isSaveNotification: true,
+      notification: {
+        title: "New Member Request",
+        body: "You have a new member request",
+        chatroomId: selectedGroupId,
+      },
+    });
   } catch (error) {
     console.error("Error sending notification:", error);
   }
 };
-// 获取待处理用户
-const fetchPendingUsers = async () => {
-  try {
-    const chatroomUsersQuery = query(
-      collection(db, "chatroom_user"),
-      where("chatroomId", "==", props.selectedGroupId),
-      where("role", "==", "pending")
-    );
-    const chatroomUsersSnapshot = await getDocs(chatroomUsersQuery);
 
-    pendingUsers.value = [];
-    for (const docSnapshot of chatroomUsersSnapshot.docs) {
-      const userDoc = await getDoc(doc(db, "users", docSnapshot.data().userId));
-      if (userDoc.exists()) {
-        pendingUsers.value.push({
-          id: docSnapshot.id,
-          ...userDoc.data(),
-        });
-      }
+const fetchPendingUsers = async (groupId) => {
+  try {
+    // 1. 验证用户认证状态
+    await auth.authStateReady();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("User not authenticated");
     }
+
+    // 2. 检查当前用户是否是群组管理员
+    const isAdmin = await checkGroupAdmin(currentUser.uid, groupId);
+    if (!isAdmin) {
+      throw new Error("Permission denied: User is not group admin");
+    }
+
+    // 3. 构造查询条件
+    const pendingStatusQuery = `${groupId}_pending`;
+    const pendingUsersQuery = query(
+      dbRef(db, "chatroom_users"),
+      orderByChild("chatroomId_role"),
+      equalTo(pendingStatusQuery)
+    );
+
+    // 4. 执行查询
+    const snapshot = await get(pendingUsersQuery);
+    if (!snapshot.exists()) {
+      return []; // 没有待处理用户
+    }
+
+    // 5. 提取待处理用户ID
+    const pendingRequests = [];
+    snapshot.forEach((childSnapshot) => {
+      const requestData = childSnapshot.val();
+      pendingRequests.push({
+        requestId: childSnapshot.key,
+        userId: requestData.userId,
+        requestedAt: requestData.requestedAt || null,
+        // 可以添加其他需要的请求元数据
+      });
+    });
+
+    // 6. 批量获取用户信息（优化性能）
+    const userIds = pendingRequests.map((req) => req.userId);
+    const usersInfo = await batchGetUsersInfo(userIds);
+
+    // 7. 合并请求数据和用户信息
+    const result = pendingRequests.map((request) => ({
+      ...request,
+      userInfo: usersInfo[request.userId] || null,
+    }));
+
+    return result.filter((item) => item.userInfo !== null); // 过滤掉无效用户
   } catch (error) {
-    console.error("Error fetching pending users:", error);
+    console.error("Error fetching pending users:", {
+      error: error.message,
+      groupId,
+      user: auth.currentUser?.uid,
+    });
+    throw error; // 重新抛出错误供调用方处理
+  }
+};
+
+const checkGroupAdmin = computed(() => {
+  try {
+    return props.currentRole === "admin" || props.currentRole === "moderator";
+  } catch (error) {
+    console.error("Error checking admin status:", error);
+    return false;
+  }
+});
+
+watch(
+  () => checkGroupAdmin.value,
+  async () => {
+    if (checkGroupAdmin.value) {
+      await fetchPendingUsers();
+    }
+  }
+);
+
+/**
+ * 批量获取用户基本信息
+ */
+const batchGetUsersInfo = async (userIds) => {
+  if (!userIds.length) return {};
+
+  try {
+    const usersRef = dbRef(db, "users");
+    const snapshot = await get(usersRef);
+
+    const result = {};
+    userIds.forEach((uid) => {
+      if (snapshot.child(uid).exists()) {
+        const userData = snapshot.child(uid).val();
+        result[uid] = {
+          displayName: userData.displayName || "Unknown User",
+          photoURL: userData.photoURL || DEFAULT_AVATAR,
+          email: userData.email || "",
+          // 其他公开可用的用户信息
+        };
+      }
+    });
+    return result;
+  } catch (error) {
+    console.error("Error batch fetching users:", error);
+    return {};
   }
 };
 
 // 同意待处理用户
 const approvePendingUser = async (userId) => {
   try {
-    await updateDoc(doc(db, "chatroom_user", userId), {
+    await update(dbRef(db, `chatroom_users/${userId}`), {
       role: "user", // 将 role 改为 user
     });
     fetchPendingUsers(); // 刷新待处理用户列表
@@ -248,16 +330,73 @@ const approvePendingUser = async (userId) => {
 // 拒绝待处理用户
 const rejectPendingUser = async (userId) => {
   try {
-    await deleteDoc(doc(db, "chatroom_user", userId));
+    await remove(dbRef(db, `chatroom_users/${userId}`));
     fetchPendingUsers(); // 刷新待处理用户列表
   } catch (error) {
     console.error("Error rejecting user:", error);
   }
 };
 
-onMounted(() => {
-  fetchPendingUsers();
-});
+const handleRemoveMember = async (memberId) => {
+  try {
+    const chatroomId = selectedGroupId;
+    const chatroomUserPath = `${chatroomId}_${memberId}`;
+
+    // 删除成员记录
+    await remove(dbRef(db, `chatroom_users/${chatroomUserPath}`));
+
+    // 可以在这里触发 UI 更新或显示成功提示
+  } catch (error) {
+    console.error("Error removing member:", error);
+    // 可以在这里显示错误提示
+  }
+};
+// 获取待处理用户
+// const fetchPendingUsers = async () => {
+//   try {
+//     const chatroomUsersQuery = query(
+//       collection(db, "chatroom_user"),
+//       where("chatroomId", "==", props.selectedGroupId),
+//       where("role", "==", "pending")
+//     );
+//     const chatroomUsersSnapshot = await getDocs(chatroomUsersQuery);
+
+//     pendingUsers.value = [];
+//     for (const docSnapshot of chatroomUsersSnapshot.docs) {
+//       const userDoc = await getDoc(doc(db, "users", docSnapshot.data().userId));
+//       if (userDoc.exists()) {
+//         pendingUsers.value.push({
+//           id: docSnapshot.id,
+//           ...userDoc.data(),
+//         });
+//       }
+//     }
+//   } catch (error) {
+//     console.error("Error fetching pending users:", error);
+//   }
+// };
+
+// // 同意待处理用户
+// const approvePendingUser = async (userId) => {
+//   try {
+//     await updateDoc(doc(db, "chatroom_user", userId), {
+//       role: "user", // 将 role 改为 user
+//     });
+//     fetchPendingUsers(); // 刷新待处理用户列表
+//   } catch (error) {
+//     console.error("Error approving user:", error);
+//   }
+// };
+
+// // 拒绝待处理用户
+// const rejectPendingUser = async (userId) => {
+//   try {
+//     await deleteDoc(doc(db, "chatroom_user", userId));
+//     fetchPendingUsers(); // 刷新待处理用户列表
+//   } catch (error) {
+//     console.error("Error rejecting user:", error);
+//   }
+// };
 
 const openMemberMenu = (member) => {
   selectedMember.value = member;
@@ -303,27 +442,27 @@ const downloadFile = (url) => {
   document.body.removeChild(link);
 };
 
-const handleRemoveMember = async (memberId) => {
-  try {
-    // 假设 chatroomId 是当前群组的 ID
-    const chatroomId = "your-chatroom-id"; // 替换为实际的 chatroomId
+// const handleRemoveMember = async (memberId) => {
+//   try {
+//     // 假设 chatroomId 是当前群组的 ID
+//     const chatroomId = "your-chatroom-id"; // 替换为实际的 chatroomId
 
-    // 构建文档路径
-    const chatroomUserDocRef = doc(
-      db,
-      "chatroom_user",
-      `${chatroomId}_${memberId}`
-    );
+//     // 构建文档路径
+//     const chatroomUserDocRef = doc(
+//       db,
+//       "chatroom_user",
+//       `${chatroomId}_${memberId}`
+//     );
 
-    // 删除文档
-    await deleteDoc(chatroomUserDocRef);
+//     // 删除文档
+//     await deleteDoc(chatroomUserDocRef);
 
-    // 可以在这里触发 UI 更新或显示成功提示
-  } catch (error) {
-    console.error("Error removing member:", error);
-    // 可以在这里显示错误提示
-  }
-};
+//     // 可以在这里触发 UI 更新或显示成功提示
+//   } catch (error) {
+//     console.error("Error removing member:", error);
+//     // 可以在这里显示错误提示
+//   }
+// };
 </script>
 
 <style scoped>

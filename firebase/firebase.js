@@ -1,6 +1,6 @@
 // firebase/firebase.js
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getDatabase } from "firebase/database";
 import { getStorage } from "firebase/storage";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
@@ -18,8 +18,8 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore
-const db = getFirestore(app);
+// Initialize Firebase Realtime Database
+const db = getDatabase(app);
 
 // Initialize Authentication
 const auth = getAuth(app);
@@ -32,4 +32,4 @@ const functions = getFunctions(app);
 // Providers
 const googleProvider = new GoogleAuthProvider();
 
-export { db, storage, functions, auth, googleProvider };
+export { app, db, storage, functions, auth, googleProvider };

@@ -89,16 +89,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  updateDoc,
-  deleteDoc,
-} from "firebase/firestore";
+import { ref as dbRef, get } from "firebase/database";
 import { db } from "~/firebase/firebase.js";
 import ConfirmAddMemberModal from "@/components/GroupInfo/ConfirmAddMemberModal.vue";
 
@@ -121,11 +112,15 @@ const users = ref([]); // 存储所有用户
 // 获取所有用户
 const fetchAllUsers = async () => {
   try {
-    const usersSnapshot = await getDocs(collection(db, "users"));
-    users.value = usersSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const usersRef = dbRef(db, "users");
+    const usersSnapshot = await get(usersRef);
+    if (usersSnapshot.exists()) {
+      const usersData = usersSnapshot.val();
+      users.value = Object.entries(usersData).map(([id, data]) => ({
+        id,
+        ...data,
+      }));
+    }
   } catch (error) {
     console.error("Error fetching users:", error);
   }

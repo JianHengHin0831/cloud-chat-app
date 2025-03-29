@@ -35,8 +35,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
-import { doc, updateDoc } from "firebase/firestore";
+import { ref as dbRef, update } from "firebase/database";
 import { db } from "~/firebase/firebase.js";
 
 // 定义 props 和 emit
@@ -52,7 +51,7 @@ const showErrorMessage = ref(false);
 const disbandGroup = async () => {
   try {
     // 更新群组状态为解散
-    await updateDoc(doc(db, "chatroom", props.groupId), {
+    await update(dbRef(db, `chatrooms/${props.groupId}`), {
       isDisband: true,
     });
 

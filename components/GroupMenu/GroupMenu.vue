@@ -76,9 +76,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
 import ViewGroupDetails from "~/components/GroupMenu/ViewGroupDetails.vue";
-import UpdateGroupDetails from "~/components/GroupMenu/UpdateGroupDetails.vue";
+import UpdateGroupDetails from "~/components/GroupMenu/UpdateGroupDetails1.vue";
 import DisbandGroup from "~/components/GroupMenu/DisbandGroup.vue";
 
 const props = defineProps({

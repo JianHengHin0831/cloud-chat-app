@@ -1,0 +1,32 @@
+{
+  "rules": {
+    "chatroom_users": {
+      ".indexOn": ["chatroomId_role", "userId"],
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "chatrooms": {
+      "$chatroomId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "creator": {
+          ".validate": "newData.val() == auth.uid"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber() || newData.val() == now"
+        },
+        "members": {
+          "$uid": {
+            ".validate": "auth != null"
+          }
+        }
+      }
+    }
+  }
+}

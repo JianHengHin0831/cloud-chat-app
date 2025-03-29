@@ -7,7 +7,6 @@
 </template>
 
 <script setup>
-import { onMounted } from "vue";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "~/firebase/firebase.js";
 import { navigateTo } from "#app";
