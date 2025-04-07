@@ -2,19 +2,22 @@
   <div
     class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75"
   >
-    <div class="bg-white rounded-lg p-6 w-96">
-      <h2 class="text-xl font-semibold mb-4">Group Details</h2>
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
+      <h2 class="text-xl font-semibold mb-4 dark:text-white">Group Details</h2>
       <div class="space-y-4">
         <!-- Group ID -->
         <div>
-          <label class="block text-sm font-medium text-gray-700"
+          <label
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >Group ID</label
           >
           <div class="flex items-center">
-            <p class="mt-1 text-sm text-gray-900">{{ groupData.id }}</p>
+            <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+              {{ groupData.id }}
+            </p>
             <button
               @click="copyGroupId"
-              class="ml-2 p-1 text-gray-500 hover:text-gray-700 focus:outline-none"
+              class="ml-2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 focus:outline-none"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -43,29 +46,40 @@
 
         <!-- Name -->
         <div>
-          <label class="block text-sm font-medium text-gray-700">Name</label>
-          <p class="mt-1 text-sm text-gray-900">{{ groupData.name }}</p>
+          <label
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >Name</label
+          >
+          <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+            {{ groupData.name }}
+          </p>
         </div>
 
         <!-- Description -->
         <div>
-          <label class="block text-sm font-medium text-gray-700"
+          <label
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >Description</label
           >
-          <p class="mt-1 text-sm text-gray-900">{{ groupData.description }}</p>
+          <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+            {{ groupData.description }}
+          </p>
         </div>
 
         <!-- Chat Type -->
         <div>
-          <label class="block text-sm font-medium text-gray-700"
+          <label
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >Chat Type</label
           >
-          <p class="mt-1 text-sm text-gray-900">{{ groupData.chatType }}</p>
+          <p class="mt-1 text-sm text-gray-900 dark:text-gray-100">
+            {{ groupData.chatType }}
+          </p>
         </div>
       </div>
       <button
         @click="$emit('close')"
-        class="mt-6 w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600"
+        class="mt-6 w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
       >
         Close
       </button>
@@ -79,15 +93,42 @@ const props = defineProps({
   groupData: Object,
 });
 
+import { auth } from "~/firebase/firebase.js";
+import { logEvent, trackMetric } from "~/utils/logging";
+
 // 提示消息状态
 const showCopySuccess = ref(false);
 const showCopyError = ref(false);
 
+// 记录查看组详情事件
+onMounted(() => {
+  logEvent("view_group_details", {
+    groupId: props.groupData.id,
+    userId: auth.currentUser?.uid,
+    groupName: props.groupData.name,
+    timestamp: new Date().toISOString(),
+  });
+  trackMetric("view_group_details_count", 1);
+});
+
 // 复制 Group ID 的函数
 const copyGroupId = async () => {
+  const startTime = Date.now();
   try {
     // 使用 Clipboard API 复制文本
     await navigator.clipboard.writeText(props.groupData.id);
+
+    // 记录成功复制事件
+    logEvent("copy_group_id_success", {
+      groupId: props.groupData.id,
+      userId: auth.currentUser?.uid,
+      groupName: props.groupData.name,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 跟踪指标
+    trackMetric("copy_group_id_duration", Date.now() - startTime);
+    trackMetric("copy_group_id_success_count", 1);
 
     // 显示成功提示
     showCopySuccess.value = true;
@@ -99,6 +140,18 @@ const copyGroupId = async () => {
     }, 3000);
   } catch (error) {
     console.error("Failed to copy Group ID:", error);
+
+    // 记录失败事件
+    logEvent("copy_group_id_failure", {
+      groupId: props.groupData.id,
+      userId: auth.currentUser?.uid,
+      groupName: props.groupData.name,
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 跟踪失败指标
+    trackMetric("copy_group_id_failure_count", 1);
 
     // 显示错误提示
     showCopyError.value = true;

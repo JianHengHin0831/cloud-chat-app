@@ -67,128 +67,214 @@
     </div>
 
     <!-- Right side with login form -->
-    <div class="w-full md:w-1/2 flex items-center justify-center p-8">
-      <div class="w-full max-w-md">
-        <h2 class="text-gray-500 text-xl font-medium mb-8 text-center">
-          USER LOGIN
-        </h2>
-
-        <form @submit.prevent="handleLogin">
-          <!-- Username input -->
-          <div class="mb-4 relative">
-            <div
-              class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 text-gray-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </div>
-            <input
-              type="text"
-              v-model="email"
-              autocomplete="email"
-              class="bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-md pl-10 pr-4 py-3 w-full"
-              placeholder="Email"
-            />
-          </div>
-          <p v-if="emailError" class="text-sm text-red-500 mt-1">
-            {{ emailError }}
-          </p>
-
-          <!-- Password input -->
-          <div class="mb-6 relative">
-            <div
-              class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 text-gray-400"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path
-                  fill-rule="evenodd"
-                  d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </div>
-            <input
-              type="password"
-              autocomplete="current-password"
-              class="bg-gray-100 text-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-md pl-10 pr-4 py-3 w-full"
-              placeholder="Password"
-              v-model="password"
-            />
-          </div>
-          <p v-if="passwordError" class="text-sm text-red-500 mt-1">
-            {{ passwordError }}
-          </p>
-
-          <!-- Remember me and forgot password -->
-          <div class="flex items-center justify-between mb-6">
-            <div class="flex items-center">
-              <input
-                type="checkbox"
-                id="remember"
-                class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-              />
-              <label for="remember" class="ml-2 block text-sm text-gray-400"
-                >Remember me</label
-              >
-            </div>
-            <div>
-              <NuxtLink
-                to="/forgot-password"
-                class="text-sm text-gray-400 hover:text-purple-500"
-                >Forgot password?</NuxtLink
-              >
-            </div>
-          </div>
-
-          <!-- Login button -->
-          <button
-            type="submit"
-            class="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 uppercase"
-          >
-            {{ isLoading ? "Logging in..." : "Login" }}
-          </button>
-        </form>
+    <div
+      class="bg-gray-100 dark:bg-gray-800 w-full md:w-1/2 flex items-center justify-center p-4 sm:p-8"
+    >
+      <!-- Mobile background elements -->
+      <div class="md:hidden absolute inset-0 overflow-hidden">
         <div
-          v-if="loginError"
-          class="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md"
-        >
-          <p class="text-sm">{{ loginError }}</p>
+          class="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-br from-purple-500 to-pink-500"
+        ></div>
+        <div
+          class="absolute top-1/3 left-0 w-full h-2/3 bg-gray-50 dark:bg-gray-900"
+        ></div>
+        <!-- Decorative circles -->
+        <div
+          class="absolute top-1/4 right-0 w-32 h-32 bg-white/10 rounded-full transform translate-x-1/2"
+        ></div>
+        <div
+          class="absolute top-1/3 left-0 w-24 h-24 bg-white/10 rounded-full transform -translate-x-1/2"
+        ></div>
+      </div>
+
+      <div class="w-full max-w-md relative z-10">
+        <!-- Mobile header -->
+        <div class="md:hidden my-auto text-center mb-24">
+          <div class="flex justify-center mb-4">
+            <img
+              src="@/assets/cloud_logo.png"
+              alt="CloudTalk Logo"
+              class="w-16 h-16"
+            />
+          </div>
+          <h1 class="text-2xl font-bold text-white mb-2">Welcome Back</h1>
+          <p class="text-white/80 text-sm">Sign in to continue to CloudTalk</p>
         </div>
-        <div class="mt-6 text-center">
-          <p class="text-sm text-gray-600">
-            Don't have an account?
-            <NuxtLink
-              to="/register"
-              class="text-indigo-600 hover:text-indigo-500"
-              >Sign up</NuxtLink
-            >
-          </p>
-        </div>
-        <div class="mt-6">
-          <p class="text-sm text-gray-600 text-center mb-4">
-            Log in with another methods
-          </p>
-          <button
-            @click="signInWithGoogle"
-            class="w-10 bg-red-600 text-white py-1 px-1 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 flex items-center justify-center shadow-md"
+
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 sm:p-8">
+          <h2
+            class="text-gray-500 text-xl font-medium mb-8 text-center hidden md:block"
           >
-            <font-awesome-icon :icon="['fab', 'google']" class="" />
-          </button>
+            USER LOGIN
+          </h2>
+
+          <form @submit.prevent="handleLogin">
+            <!-- Username input -->
+            <div class="mb-4 relative">
+              <div
+                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-gray-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+              <input
+                type="text"
+                v-model="email"
+                autocomplete="email"
+                class="bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg pl-10 pr-4 py-3 w-full"
+                placeholder="Email"
+              />
+            </div>
+            <p v-if="emailError" class="text-sm text-red-500 mt-1">
+              {{ emailError }}
+            </p>
+
+            <!-- Password input -->
+            <div class="mb-6 relative">
+              <div
+                class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-gray-400"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </div>
+              <input
+                type="password"
+                autocomplete="current-password"
+                class="bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg pl-10 pr-4 py-3 w-full"
+                placeholder="Password"
+                v-model="password"
+              />
+            </div>
+            <p v-if="passwordError" class="text-sm text-red-500 mt-1">
+              {{ passwordError }}
+            </p>
+
+            <!-- Remember me and forgot password -->
+            <div class="flex items-center justify-between mb-6">
+              <div class="flex items-center">
+                <input
+                  type="checkbox"
+                  id="remember"
+                  class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <label
+                  for="remember"
+                  class="ml-2 block text-sm text-gray-600 dark:text-gray-300"
+                  >Remember me</label
+                >
+              </div>
+              <div>
+                <NuxtLink
+                  to="/forgot-password"
+                  class="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-500"
+                  >Forgot password?</NuxtLink
+                >
+              </div>
+            </div>
+
+            <!-- Login button -->
+            <button
+              type="submit"
+              class="w-full py-3 px-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 uppercase transition-all duration-200"
+            >
+              {{ isLoading ? "Logging in..." : "Login" }}
+            </button>
+          </form>
+          <div
+            v-if="loginError"
+            class="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg"
+          >
+            <p class="text-sm">{{ loginError }}</p>
+          </div>
+          <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600 dark:text-gray-300">
+              Don't have an account?
+              <NuxtLink
+                to="/register"
+                class="text-purple-600 dark:text-purple-400 hover:text-purple-500"
+                >Sign up</NuxtLink
+              >
+            </p>
+          </div>
+          <div class="mt-6">
+            <p
+              class="text-sm text-gray-600 dark:text-gray-300 text-center mb-4"
+            >
+              Log in with another methods
+            </p>
+            <button
+              @click="signInWithGoogle"
+              class="w-48 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 flex items-center justify-center gap-2 shadow-md transition-all duration-200"
+            >
+              <font-awesome-icon
+                :icon="['fab', 'google']"
+                class="text-red-500"
+              />
+              <span class="text-sm !min-w-fit">Continue with Google</span>
+            </button>
+          </div>
+
+          <!-- MFA Verification Form -->
+          <div v-if="showMFAVerification" class="mt-8 space-y-6">
+            <div>
+              <h3
+                class="text-center text-lg font-medium text-gray-900 dark:text-white"
+              >
+                Two-Factor Authentication
+              </h3>
+              <p
+                class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400"
+              >
+                Please enter the verification code from your authenticator app
+              </p>
+            </div>
+
+            <div>
+              <label for="verification-code" class="sr-only"
+                >Verification Code</label
+              >
+              <input
+                id="verification-code"
+                v-model="mfaVerificationCode"
+                type="text"
+                required
+                class="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Enter 6-digit code"
+                maxlength="6"
+                pattern="[0-9]*"
+              />
+            </div>
+
+            <div>
+              <button
+                @click="verifyMFACode"
+                :disabled="loading"
+                class="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              >
+                {{ loading ? "Verifying..." : "Verify Code" }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -196,7 +282,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { auth, db, googleProvider } from "~/firebase/firebase.js";
 import {
   signInWithEmailAndPassword,
@@ -205,6 +291,9 @@ import {
   browserLocalPersistence,
 } from "firebase/auth";
 import { ref as dbRef, set, get } from "firebase/database";
+import { verifyTOTP } from "~/utils/authHelper";
+import { logEvent, trackMetric } from "~/utils/logging";
+import { useFcmToken } from "~/composables/useFcmToken";
 
 //SEO meta
 const title = "Login to Cloudtalk - Chat Room Application";
@@ -220,18 +309,19 @@ useSeoMeta({
 
 const email = ref("");
 const password = ref("");
-const loginError = ref("");
-const emailError = ref("");
-const passwordError = ref("");
-const isLoading = ref(false);
+const error = ref("");
+const loading = ref(false);
+const showMFAVerification = ref(false);
+const mfaVerificationCode = ref("");
 const router = useRouter();
-import { useFcmToken } from "~/composables/useFcmToken";
 const { isSupported, getPermissionStatus, requestPermission, updateToken } =
   useFcmToken();
 
-const { sendNotification } = useNotification();
-
-const showNotificationPrompt = ref(false);
+// 添加缺失的响应式变量
+const emailError = ref("");
+const passwordError = ref("");
+const loginError = ref("");
+const isLoading = ref(false);
 
 // Check notification status after login
 const checkNotifications = async (userId) => {
@@ -240,122 +330,278 @@ const checkNotifications = async (userId) => {
   const status = getPermissionStatus();
   if (status === "granted") {
     await updateToken(userId);
-  } else if (status === "default") {
-    showNotificationPrompt.value = true;
   }
 };
 
-// Call this from user gesture only
-const enableNotifications = async () => {
-  const token = await requestPermission();
-  if (token) {
-    await updateToken(currentUser.value.uid);
-    showNotificationPrompt.value = false;
-  }
-};
-
-const sendTestNotification = async (userId) => {
-  try {
-    if (!auth.currentUser) {
-      throw new Error("No authenticated user");
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    await sendNotification({
-      userId: userId,
-      isSaveNotification: true,
-      notification: {
-        title: "Welcome to CloudTalk",
-        body: "You've successfully logged in",
-        chatroomId: "welcome_chat",
-      },
-    });
-  } catch (error) {
-    console.error("Notification sending error:", error);
-  }
-};
-
+// 处理登录
 const handleLogin = async () => {
+  const startTime = Date.now();
   try {
-    isLoading.value = true; // 开始加载
-    loginError.value = ""; // 清空之前的错误信息
+    isLoading.value = true;
+    error.value = "";
+    emailError.value = "";
+    passwordError.value = "";
+    loginError.value = "";
 
-    await setPersistence(auth, browserLocalPersistence);
+    // 记录登录尝试
+    logEvent("login_attempt", {
+      method: "email",
+      email: email.value,
+      timestamp: new Date().toISOString(),
+    });
 
-    // 使用 Firebase Authentication 登录
+    // 使用邮箱密码登录
     const userCredential = await signInWithEmailAndPassword(
       auth,
       email.value,
       password.value
     );
+
     const user = userCredential.user;
-    await checkNotifications(user.uid);
 
-    localStorage.setItem("loginTime", new Date().toISOString());
+    // 检查用户是否启用了 MFA
+    const userRef = dbRef(db, `users/${user.uid}/securitySettings`);
+    const userSnapshot = await get(userRef);
 
-    // 登录成功后重定向到主页或其他页面
-    router.push("/");
-  } catch (error) {
-    console.error("Login error:", error);
+    if (userSnapshot.exists() && userSnapshot.val().mfaEnabled) {
+      // 用户启用了 MFA，需要验证
+      showMFAVerification.value = true;
 
-    // 根据错误类型显示友好的错误信息
-    switch (error.code) {
-      case "auth/invalid-email":
-        loginError.value = "Invalid email address.";
-        break;
-      case "auth/user-not-found":
-        loginError.value = "User not found.";
-        break;
-      case "auth/wrong-password":
-        loginError.value = "Incorrect password.";
-        break;
-      case "auth/too-many-requests":
-        loginError.value = "Too many failed attempts. Please try again later.";
-        break;
-      default:
-        loginError.value = "Login failed. Please try again.";
+      // 记录MFA验证请求
+      logEvent("mfa_verification_requested", {
+        userId: user.uid,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      // 没有启用 MFA，直接登录成功
+      await checkNotifications(user.uid);
+      localStorage.setItem("loginTime", new Date().toISOString());
+
+      // 记录登录成功
+      const duration = Date.now() - startTime;
+      logEvent("login_success", {
+        userId: user.uid,
+        method: "email",
+        duration,
+        timestamp: new Date().toISOString(),
+      });
+
+      trackMetric("login_duration", duration, {
+        method: "email",
+        mfa_enabled: "false",
+      });
+
+      trackMetric("login_success_count", 1, {
+        method: "email",
+      });
+
+      await router.push("/");
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+
+    // 记录登录失败
+    logEvent("login_failure", {
+      method: "email",
+      error: err.code,
+      message: err.message,
+      timestamp: new Date().toISOString(),
+    });
+
+    trackMetric("login_failure_count", 1, {
+      method: "email",
+      error_code: err.code,
+    });
+
+    if (err.code === "auth/invalid-email") {
+      emailError.value = "Invalid email address";
+    } else if (err.code === "auth/wrong-password") {
+      passwordError.value = "Incorrect password";
+    } else if (err.code === "auth/user-not-found") {
+      emailError.value = "User not found";
+    } else {
+      loginError.value = err.message || "Login failed";
     }
   } finally {
-    isLoading.value = false; // 结束加载
+    isLoading.value = false;
+  }
+};
+
+// 验证 MFA 验证码
+const verifyMFACode = async () => {
+  const startTime = Date.now();
+  try {
+    loading.value = true;
+    error.value = "";
+
+    if (!mfaVerificationCode.value) {
+      error.value = "Please enter the verification code";
+      return;
+    }
+
+    // 记录MFA验证尝试
+    logEvent("mfa_verification_attempt", {
+      userId: auth.currentUser?.uid,
+      timestamp: new Date().toISOString(),
+    });
+
+    // 验证 TOTP 验证码
+    const isValid = await verifyTOTP(mfaVerificationCode.value);
+
+    if (isValid) {
+      // 验证成功，完成登录
+      await checkNotifications(auth.currentUser.uid);
+      localStorage.setItem("loginTime", new Date().toISOString());
+
+      // 记录MFA验证成功
+      const duration = Date.now() - startTime;
+      logEvent("mfa_verification_success", {
+        userId: auth.currentUser?.uid,
+        duration,
+        timestamp: new Date().toISOString(),
+      });
+
+      trackMetric("mfa_verification_duration", duration, {
+        result: "success",
+      });
+
+      trackMetric("mfa_verification_success_count", 1, {});
+
+      await router.push("/");
+    } else {
+      // 记录MFA验证失败
+      logEvent("mfa_verification_failure", {
+        userId: auth.currentUser?.uid,
+        reason: "invalid_code",
+        timestamp: new Date().toISOString(),
+      });
+
+      trackMetric("mfa_verification_failure_count", 1, {
+        reason: "invalid_code",
+      });
+
+      error.value = "Invalid verification code";
+    }
+  } catch (err) {
+    console.error("MFA verification error:", err);
+
+    // 记录MFA验证错误
+    logEvent("mfa_verification_error", {
+      userId: auth.currentUser?.uid,
+      error: err.message,
+      timestamp: new Date().toISOString(),
+    });
+
+    trackMetric("mfa_verification_failure_count", 1, {
+      reason: "error",
+    });
+
+    error.value = err.message || "Failed to verify code";
+  } finally {
+    loading.value = false;
   }
 };
 
 const signInWithGoogle = async () => {
+  const startTime = Date.now();
   try {
+    isLoading.value = true;
+    error.value = "";
+    loginError.value = "";
+
+    // 记录Google登录尝试
+    logEvent("login_attempt", {
+      method: "google",
+      timestamp: new Date().toISOString(),
+    });
+
     // 使用 Google 登录
     await setPersistence(auth, browserLocalPersistence);
-
     const result = await signInWithPopup(auth, googleProvider);
-    localStorage.setItem("loginTime", new Date().toISOString());
     const user = result.user;
 
     // 检查 Realtime Database 中是否存在该用户
-    const userRef = dbRef(db, `users/${user.uid}`); // 用户引用
+    const userRef = dbRef(db, `users/${user.uid}`);
     const userSnapshot = await get(userRef);
 
     if (!userSnapshot.exists()) {
       // 如果用户不存在，则创建用户数据
       await set(userRef, {
-        username: user.displayName || "Anonymous", // 用户名（如果没有则设为 "Anonymous"）
-        email: user.email, // 电子邮件
-        createdAt: new Date().toISOString(), // 创建时间
-        joinedAt: new Date().toISOString(), // 加入时间
-        emailVerified: user.emailVerified, // 邮件验证状态
-        avatarUrl: user.photoURL || null, // 头像 URL（如果没有则设为 null）
-        registerMethod: "google", // 注册方式
+        username: user.displayName || "Anonymous",
+        email: user.email,
+        createdAt: new Date().toISOString(),
+        joinedAt: new Date().toISOString(),
+        emailVerified: user.emailVerified,
+        avatarUrl: user.photoURL || null,
+        registerMethod: "google",
       });
-      await checkNotifications(user.uid);
-      await sendTestNotification(user.uid);
 
-      await navigateTo("/");
-    } else {
-      await checkNotifications(user.uid);
-      await sendTestNotification(user.uid);
-      await navigateTo("/");
+      // 记录新用户创建
+      logEvent("new_user_created", {
+        userId: user.uid,
+        method: "google",
+        timestamp: new Date().toISOString(),
+      });
     }
-  } catch (error) {
-    console.error("Google login error:", error);
+
+    // 检查用户是否启用了 MFA
+    const securitySettingsRef = dbRef(db, `users/${user.uid}/securitySettings`);
+    const securitySnapshot = await get(securitySettingsRef);
+
+    if (securitySnapshot.exists() && securitySnapshot.val().mfaEnabled) {
+      // 用户启用了 MFA，需要验证
+      showMFAVerification.value = true;
+
+      // 记录MFA验证请求
+      logEvent("mfa_verification_requested", {
+        userId: user.uid,
+        method: "google",
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      // 没有启用 MFA，直接登录成功
+      await checkNotifications(user.uid);
+      localStorage.setItem("loginTime", new Date().toISOString());
+
+      // 记录Google登录成功
+      const duration = Date.now() - startTime;
+      logEvent("login_success", {
+        userId: user.uid,
+        method: "google",
+        duration,
+        timestamp: new Date().toISOString(),
+      });
+
+      trackMetric("login_duration", duration, {
+        method: "google",
+        mfa_enabled: "false",
+      });
+
+      trackMetric("login_success_count", 1, {
+        method: "google",
+      });
+
+      await router.push("/");
+    }
+  } catch (err) {
+    console.error("Google login error:", err);
+
+    // 记录Google登录失败
+    logEvent("login_failure", {
+      method: "google",
+      error: err.code,
+      message: err.message,
+      timestamp: new Date().toISOString(),
+    });
+
+    trackMetric("login_failure_count", 1, {
+      method: "google",
+      error_code: err.code,
+    });
+
+    loginError.value = err.message || "Google login failed";
+  } finally {
+    isLoading.value = false;
   }
 };
 </script>

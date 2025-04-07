@@ -1,11 +1,11 @@
 <template>
   <div
-    class="flex flex-col items-center space-y-6 py-4 bg-gray-100 w-20 h-screen"
+    class="flex flex-col items-center space-y-6 my-3 rounded-lg py-4 bg-gray-100 dark:bg-gray-800 w-20 h-screen"
   >
     <!-- User Avatar -->
     <img
       :src="avatarUrl || '/images/user_avatar.png'"
-      class="w-12 h-12 rounded-full"
+      class="w-12 h-12 rounded-full border-2 border-white dark:border-gray-700"
       alt="User Avatar"
     />
 
@@ -16,7 +16,11 @@
         <Icon
           icon="bi:chat-square-dots"
           class="w-8 h-8"
-          :class="isActivePage('/') ? 'text-blue-600' : 'text-black'"
+          :class="
+            isActivePage('/')
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-black dark:text-white'
+          "
         />
       </NuxtLink>
 
@@ -25,7 +29,11 @@
         <Icon
           icon="mdi:magnify"
           class="w-8 h-8"
-          :class="isActivePage('/search') ? 'text-blue-600' : 'text-black'"
+          :class="
+            isActivePage('/search')
+              ? 'text-blue-600 dark:text-blue-400'
+              : 'text-black dark:text-white'
+          "
         />
       </NuxtLink>
     </nav>
@@ -67,7 +75,10 @@ const fetchUserAvatar = async () => {
 
   // 检查用户是否通过 Google 登录
   if (
-    user.providerData.some((provider) => provider.providerId === "google.com")
+    user.providerData.some(
+      (provider) => provider.providerId === "google.com"
+    ) ||
+    user.photoURL.includes("googleusercontent.com")
   ) {
     // 使用 Google 的头像
     avatarUrl.value = user.photoURL;

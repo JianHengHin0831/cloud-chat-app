@@ -1,6 +1,7 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { resolve } from "path";
 
+// @ts-ignore
 export default defineNuxtConfig({
   alias: {
     "@opentelemetry/api": resolve(
@@ -10,6 +11,10 @@ export default defineNuxtConfig({
   },
   compatibilityDate: "2024-11-01",
   runtimeConfig: {
+    apiBase: process.env.NUXT_API_BASE,
+    // redisHost: process.env.REDIS_HOST,
+    // redisEnabled: process.env.REDIS_ENABLED || "false",
+    // redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
     firebase: {
       serviceAccount: {
         type: process.env.FIREBASE_TYPE,
@@ -25,6 +30,10 @@ export default defineNuxtConfig({
         client_x509_cert_url: process.env.FIREBASE_CLIENT_X509_CERT_URL,
         universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
       },
+    },
+    // 公共密钥，在客户端和服务器端都可用
+    public: {
+      baseEncryptionKey: process.env.NUXT_PUBLIC_BASE_ENCRYPTION_KEY,
     },
   },
   devtools: { enabled: true },
@@ -74,7 +83,8 @@ export default defineNuxtConfig({
       asyncContext: true,
     },
   },
-  modules: ["@nuxtjs/tailwindcss", "nuxt-vuefire"],
+  modules: ["@nuxtjs/tailwindcss", "nuxt-vuefire", "@pinia/nuxt"],
+  // @ts-ignore
   vuefire: {
     config: {
       apiKey: "AIzaSyAk7UITYRxCKdyms5JWD_4Wn-b6mEzJbr0",
@@ -91,13 +101,34 @@ export default defineNuxtConfig({
     exposeConfig: true, // 將 Tailwind 配置暴露給客戶端
   },
   build: {
-    transpile: ["emoji-mart-vue-fast"],
+    transpile: ["emoji-mart-vue-fast", "@heroicons/vue"],
   },
   routeRules: {
     "/login": {
       headers: {
         "Cross-Origin-Embedder-Policy": "unsafe-none",
       },
+    },
+  },
+  css: ["~/assets/css/main.css"],
+  postcss: {
+    plugins: {
+      tailwindcss: {},
+      autoprefixer: {},
+    },
+  },
+  plugins: ["~/plugins/colorMode.js"],
+  app: {
+    head: {
+      title: "CloudTalk",
+      meta: [
+        { charset: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1" },
+        {
+          name: "description",
+          content: "CloudTalk - Real-time chat application",
+        },
+      ],
     },
   },
 });

@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cloudtalk-ingress
+  annotations:
+    kubernetes.io/ingress.global-static-ip-name: "cloudtalk-ip"
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.allow-http: "false"
+    networking.gke.io/v1beta1.FrontendConfig: "cloudtalk-frontend-config"
+spec:
+  rules:
+    - host: app.cloudtalk.com
+      http:
+        paths:
+          - path: /*
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: cloudtalk-service
+                port:
+                  number: 80
+  tls:
+    - secretName: cloudtalk-tls
+      hosts:
+        - app.cloudtalk.com

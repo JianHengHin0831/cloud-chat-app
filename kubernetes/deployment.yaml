@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudtalk-app
+  labels:
+    app: cloudtalk
+spec:
+  replicas: 3 # 初始副本数，将由HPA动态调整
+  selector:
+    matchLabels:
+      app: cloudtalk
+  template:
+    metadata:
+      labels:
+        app: cloudtalk
+    spec:
+      containers:
+        - name: cloudtalk
+          image: gcr.io/your-project/cloudtalk:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: REDIS_HOST
+              value: "redis-cache"
+            - name: REDIS_PORT
+              value: "6379"
+          readinessProbe:
+            httpGet:
+              path: /api/health?deep=1
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10

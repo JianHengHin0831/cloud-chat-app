@@ -179,7 +179,6 @@ export async function writeTimeSeries(
       name: `projects/${projectId}`,
       timeSeries: [timeSeries],
     });
-    console.log("Time series written successfully");
   } catch (error) {
     logger?.error("Failed to write time series", { error });
   }

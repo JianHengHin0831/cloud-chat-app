@@ -86,15 +86,6 @@ export default defineEventHandler(async (event) => {
     const newChatroomRef = chatroomsRef.push();
     const chatroomId = newChatroomRef.key;
 
-    // 存储群组基本信息
-    // await set(newChatroomRef, {
-    //   name,
-    //   description: description || null,
-    //   chatType,
-    //   photoUrl,
-    //   createdAt: { ".sv": "timestamp" },
-    //   isDisband: false,
-    // });
     const data = {
       name,
       description: description || null,
@@ -109,14 +100,16 @@ export default defineEventHandler(async (event) => {
       chatType,
       photoUrl,
       createdAt: Date.now(),
+      isMuted: false,
       isDisband: false,
     });
     // 存储群组成员信息
     // 2. 添加成员信息 (使用 Admin SDK)
+    const joinedAt = Date.now();
     const memberRef = adminDb.ref(`chatroom_users/${chatroomId}/${userId}`);
     await memberRef.set({
       role: "admin",
-      joinedAt: { ".sv": "timestamp" }, // 仍然可以使用服务器时间戳
+      joinedAt,
       isPinned: false,
       isMuted: false,
     });
@@ -127,7 +120,7 @@ export default defineEventHandler(async (event) => {
     );
     await userChatroomRef.set(true);
 
-    return { groupId: chatroomId };
+    return { groupId: chatroomId, joinedAt };
   } catch (error) {
     console.error("Error creating group:", error);
     throw new Error("Failed to create group");

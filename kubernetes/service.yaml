@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloudtalk-service
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}' # 启用网络端点组
+    cloud.google.com/backend-config: '{"default": "cloudtalk-backend-config"}'
+spec:
+  selector:
+    app: cloudtalk
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP

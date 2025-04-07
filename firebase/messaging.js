@@ -110,7 +110,6 @@ if (typeof window !== "undefined" && messaging) {
   onMessage(messaging, (payload) => {
     // Check if Notifications API is supported
     if (!("Notification" in window)) {
-      console.log("This browser does not support notifications");
       return;
     }
 

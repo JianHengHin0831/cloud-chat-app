@@ -1,0 +1,69 @@
+# 替换原有 redis.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-ha
+spec:
+  serviceName: redis-ha
+  replicas: 3 # 3节点集群
+  selector:
+    matchLabels:
+      app: redis-ha
+  template:
+    metadata:
+      labels:
+        app: redis-ha
+    spec:
+      containers:
+        - name: redis
+          image: redis:6.2-alpine
+          command: ["redis-server", "/conf/redis.conf"]
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+          volumeMounts:
+            - name: redis-config
+              mountPath: /conf
+            - name: redis-data
+              mountPath: /data
+      volumes:
+        - name: redis-config
+          configMap:
+            name: redis-config
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-ha
+spec:
+  selector:
+    app: redis-ha
+  ports:
+    - port: 6379
+      targetPort: 6379
+  clusterIP: None # Headless service for StatefulSet
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+data:
+  redis.conf: |
+    cluster-enabled yes
+    cluster-node-timeout 5000
+    appendonly yes
+    dir /data

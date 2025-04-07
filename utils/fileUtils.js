@@ -82,8 +82,8 @@ export const getFileName = (url) => {
     // 去掉可能的时间戳前缀（格式：数字-）
     return filenameWithPrefix.replace(/^\d+-/, "");
   } catch (e) {
-    console.error("Error parsing URL:", e);
-    return null;
+    //console.error("Error parsing URL:", e);
+    return url;
   }
 };
 

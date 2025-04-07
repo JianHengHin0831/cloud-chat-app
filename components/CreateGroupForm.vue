@@ -6,10 +6,12 @@
     @click.self="closeModal"
   >
     <!-- 弹窗内容 -->
-    <div class="bg-white rounded-lg p-6 w-full max-w-md relative">
+    <div
+      class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md relative"
+    >
       <!-- 关闭按钮 -->
       <button
-        class="absolute top-6 right-6 text-red-500 hover:text-red-700"
+        class="absolute top-6 right-6 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
         @click="closeModal"
       >
         <svg
@@ -29,37 +31,45 @@
       </button>
 
       <!-- 表单内容 -->
-      <h2 class="text-xl font-bold mb-4">Create Group</h2>
+      <h2 class="text-xl font-bold mb-4 dark:text-white">Create Group</h2>
       <form @submit.prevent="createGroup">
         <!-- Group Name -->
         <div class="mb-4">
-          <label class="block text-sm font-medium mb-1">Group Name</label>
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300"
+            >Group Name</label
+          >
           <input
             v-model="name"
             type="text"
             placeholder="Enter group name"
-            class="w-full p-2 border rounded"
+            class="w-full p-2 border dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
             required
           />
         </div>
 
         <!-- Group Description -->
         <div class="mb-4">
-          <label class="block text-sm font-medium mb-1"
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300"
             >Group Description (Optional)</label
           >
           <textarea
             v-model="description"
             placeholder="Enter group description"
-            class="w-full p-2 border rounded"
+            class="w-full p-2 border dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
             rows="3"
           ></textarea>
         </div>
 
         <!-- Chat Type -->
         <div class="mb-4">
-          <label class="block text-sm font-medium mb-1">Chat Type</label>
-          <select v-model="chatType" class="w-full p-2 border rounded" required>
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300"
+            >Chat Type</label
+          >
+          <select
+            v-model="chatType"
+            class="w-full p-2 border dark:border-gray-600 rounded dark:bg-gray-700 dark:text-white"
+            required
+          >
             <option value="public">Public</option>
             <option value="private">Private</option>
           </select>
@@ -67,10 +77,15 @@
 
         <!-- Group Photo -->
         <div class="mb-4">
-          <label class="block text-sm font-medium mb-1"
+          <label class="block text-sm font-medium mb-1 dark:text-gray-300"
             >Group Photo (Optional)</label
           >
-          <input type="file" @change="handleFileUpload" accept="image/*" />
+          <input
+            type="file"
+            @change="handleFileUpload"
+            accept="image/*"
+            class="dark:text-gray-300"
+          />
         </div>
 
         <!-- 消息区域 -->
@@ -78,8 +93,10 @@
           <p
             class="text-sm p-2 rounded"
             :class="{
-              'bg-green-100 text-green-700': message.type === 'success',
-              'bg-red-100 text-red-700': message.type === 'error',
+              'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300':
+                message.type === 'success',
+              'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300':
+                message.type === 'error',
             }"
           >
             {{ message.text }}
@@ -89,7 +106,7 @@
         <!-- Submit Button -->
         <button
           type="submit"
-          class="bg-blue-500 text-white px-4 py-2 rounded w-full"
+          class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-600 dark:hover:bg-blue-700"
           :disabled="isLoading"
         >
           {{ isLoading ? "Creating..." : "Create Group" }}
@@ -165,6 +182,16 @@ const createGroup = async () => {
         Authorization: `Bearer ${idToken}`,
       },
     });
+    //await initializeGroupKey(response.groupId);
+    const currentUser = auth.currentUser?.displayName || "Admin";
+    const newGroupId = response.groupId;
+
+    await writeActivityLog(
+      newGroupId, // You'll need to get this after creation
+      auth.currentUser?.uid,
+      `${currentUser} created the group "${name.value}"`,
+      response.joinedAt
+    );
 
     // 显示成功消息
     message.value = {

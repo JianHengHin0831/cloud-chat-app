@@ -11,7 +11,7 @@
         class="flex items-center bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full"
       >
         <span class="mr-1">👥</span>
-        {{ group.members }} member{{ group.members > 1 ? "s" : "" }}
+        {{ group.members }}
       </div>
     </div>
 
@@ -33,12 +33,11 @@
 <script setup>
 import { ref, computed } from "vue";
 import { getAuth } from "firebase/auth";
-import { getDatabase, ref as dbRef, set, get } from "firebase/database";
+import { ref as dbRef, set, get } from "firebase/database";
 import { Icon } from "@iconify/vue";
+import { auth, db } from "~/firebase/firebase.js";
 
 const props = defineProps(["group"]);
-const auth = getAuth();
-const db = getDatabase();
 
 const isJoining = ref(false);
 const isMember = ref(false);
@@ -68,11 +67,12 @@ const joinGroup = async () => {
   isJoining.value = true;
 
   try {
+    const joinedAt = Date.now();
     // 1. 添加用户到群组成员列表
     const memberRef = dbRef(db, `chatroom_users/${props.group.id}/${user.uid}`);
     await set(memberRef, {
-      role: "member",
-      joinedAt: Date.now(),
+      role: "user",
+      joinedAt: joinedAt,
       isPinned: false,
       isMuted: false,
     });
@@ -86,7 +86,16 @@ const joinGroup = async () => {
 
     // 3. 更新本地状态
     isMember.value = true;
-    props.group.members += 1; // 直接更新成员计数
+    props.group.members += 1;
+
+    await writeActivityLog(
+      props.group.id,
+      auth.currentUser?.uid,
+      `${await getUsername(auth.currentUser?.uid)} has joined the group"`,
+      joinedAt + 1
+    );
+
+    //await updateGroupKey(props.group.id);
 
     // 可以在这里添加成功通知
   } catch (error) {

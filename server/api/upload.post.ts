@@ -4,203 +4,114 @@ import {
   uploadBytes,
   getDownloadURL,
 } from "firebase/storage";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db, storage } from "~/firebase/firebase";
 import { adminAuth } from "~/server/utils/firebase-admin";
-import { ServerValue } from "firebase-admin/database";
-import { adminDb } from "~/server/utils/firebase-admin";
+import { createCipheriv, randomBytes } from "crypto";
+import { get, ref as dbRef } from "firebase/database";
+import CryptoJS from "crypto-js";
 
 export default defineEventHandler(async (event) => {
-  // 從請求頭中獲取 ID Token
+  // 1. Authentication
   const authHeader = getHeader(event, "Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     throw new Error("Unauthorized: No ID Token provided");
   }
-  const idToken = authHeader.split("Bearer ")[1];
 
-  // 驗證 ID Token 並獲取用戶信息
-  let userId;
+  const idToken = authHeader.split("Bearer ")[1];
+  let userId: string;
   try {
-    const decodedToken = await adminAuth.verifyIdToken(idToken);
-    userId = decodedToken.uid;
+    userId = (await adminAuth.verifyIdToken(idToken)).uid;
   } catch (error) {
-    console.error("Error verifying ID Token:", error);
     throw new Error("Unauthorized: Invalid ID Token");
   }
 
-  // 解析 FormData
+  // 2. Form Data
   const formData = await readMultipartFormData(event);
-  if (!formData) {
-    throw new Error("No form data found");
-  }
+  if (!formData) throw new Error("No form data found");
 
-  // 提取字段
-  let chatroomId;
-  for (const part of formData) {
-    if (part.name === "chatroomId") {
-      chatroomId = part.data.toString("utf-8");
-    }
-  }
+  const { chatroomId, files } = formData.reduce(
+    (acc, part) => {
+      if (part.name === "chatroomId")
+        acc.chatroomId = part.data.toString("utf-8");
+      if (part.name === "file") acc.files.push(part);
+      return acc;
+    },
+    { chatroomId: "", files: [] as any[] }
+  );
 
-  if (!chatroomId) {
-    throw new Error("Missing chatroomId");
-  }
+  if (!chatroomId) throw new Error("Missing chatroomId");
+  if (!files.length) throw new Error("No files found");
 
   try {
+    // 3. Get group key directly
+    const groupKeySnapshot = await get(
+      dbRef(db, `chatrooms/${chatroomId}/encryption/group_key`)
+    );
+    const rawGroupKey = groupKeySnapshot.val();
+    if (!rawGroupKey) throw new Error("群组加密密钥不存在");
+
+    const keyBufferUtf8 = Buffer.from(
+      CryptoJS.enc.Utf8.parse(rawGroupKey).toString(CryptoJS.enc.Hex),
+      "hex"
+    );
+
+    const groupKey =
+      keyBufferUtf8.length !== 32
+        ? Buffer.from(
+            CryptoJS.SHA256(rawGroupKey).toString(CryptoJS.enc.Hex),
+            "hex"
+          ).slice(0, 32)
+        : keyBufferUtf8;
+
     const uploadedFiles = [];
 
-    for (const part of formData) {
-      if (part.name === "file") {
-        // 生成唯一文件名
-        const fileExtension = part.filename?.split(".").pop() || "file";
-        const fileName = `${Date.now()}-${part.filename}`;
-        const filePath = `chatroom/${chatroomId}/${fileName}`;
+    // 4. Encrypt + upload
+    for (const part of files) {
+      const fileExt = part.filename?.split(".").pop() || "file";
+      const fileName = `${Date.now()}-${part.filename}`;
+      const filePath = `chatroom/${chatroomId}/${fileName}`;
 
-        // 上傳文件到 Cloud Storage
-        const fileRef = storageRef(storage, filePath);
-        await uploadBytes(fileRef, part.data);
+      const iv = randomBytes(16);
+      const cipher = createCipheriv("aes-256-cbc", groupKey, iv);
+      const encryptedData = Buffer.concat([
+        iv,
+        cipher.update(part.data),
+        cipher.final(),
+      ]);
 
-        // 獲取文件的下載 URL
-        const downloadURL = await getDownloadURL(fileRef);
+      const fileRef = storageRef(storage, filePath);
+      await uploadBytes(fileRef, encryptedData, {
+        customMetadata: {
+          encrypted: "true",
+          originalType: part.type || "application/octet-stream",
+        },
+      });
 
-        // 根據文件類型設置 messageType
-        let messageType = "file"; // 默認為文件
-        if (part.type?.startsWith("image/")) {
-          messageType = "image";
-        } else if (part.type?.startsWith("video/")) {
-          messageType = "video";
-        }
+      const downloadURL = await getDownloadURL(fileRef);
+      const messageType = part.type?.startsWith("image/")
+        ? "image"
+        : part.type?.startsWith("video/")
+        ? "video"
+        : "file";
 
-        // 將文件信息存儲到 Firestore
-        const chatroomRef = adminDb.ref(`chatrooms/${chatroomId}/messages`);
-        const newMessageRef = chatroomRef.push(); // Automatically generates a unique key
-
-        await newMessageRef.set({
-          senderId: userId,
-          messageContent: downloadURL,
-          messageType, // file type
-          createdAt: ServerValue.TIMESTAMP, // Admin SDK timestamp
-        });
-
-        uploadedFiles.push(downloadURL);
-      }
+      uploadedFiles.push({
+        url: downloadURL,
+        type: messageType,
+        fileName: part.filename,
+      });
     }
 
-    return { message: "Files uploaded successfully", files: uploadedFiles };
-  } catch (error) {
+    return {
+      message: "Files uploaded successfully",
+      files: uploadedFiles.map((f) => f.url),
+      fileDetails: uploadedFiles,
+    };
+  } catch (error: unknown) {
     console.error("Error uploading files:", error);
-    throw new Error("Failed to upload files");
+    if (error instanceof Error) {
+      throw new Error(`Failed to upload files: ${error.message}`);
+    } else {
+      throw new Error("Failed to upload files: Unknown error");
+    }
   }
 });
-
-// import { defineEventHandler, readMultipartFormData, getHeader } from "h3";
-// import { db } from "~/firebase/firebase";
-// import { adminAuth } from "~/server/utils/firebase-admin";
-// import { ref as dbRef, push, set } from "firebase/database";
-// import { uploadEncryptedFile } from "~/server/utils/storage";
-// import { encrypt } from "~/server/utils/crypto";
-
-// export default defineEventHandler(async (event) => {
-//   // 從請求頭中獲取 ID Token
-//   const authHeader = getHeader(event, "Authorization");
-//   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-//     throw new Error("Unauthorized: No ID Token provided");
-//   }
-//   const idToken = authHeader.split("Bearer ")[1];
-
-//   // 驗證 ID Token 並獲取用戶信息
-//   let userId;
-//   try {
-//     const decodedToken = await adminAuth.verifyIdToken(idToken);
-//     userId = decodedToken.uid;
-//   } catch (error) {
-//     console.error("Error verifying ID Token:", error);
-//     throw new Error("Unauthorized: Invalid ID Token");
-//   }
-
-//   // 解析 FormData
-//   const formData = await readMultipartFormData(event);
-//   if (!formData) {
-//     throw new Error("No form data found");
-//   }
-
-//   // 提取字段
-//   let chatroomId;
-//   for (const part of formData) {
-//     if (part.name === "chatroomId") {
-//       chatroomId = part.data.toString("utf-8");
-//     }
-//   }
-
-//   if (!chatroomId) {
-//     throw new Error("Missing chatroomId");
-//   }
-
-//   try {
-//     const uploadedFiles = [];
-
-//     for (const part of formData) {
-//       if (part.name === "file") {
-//         // Parse encrypted file metadata
-//         const metadata = JSON.parse(part.data?.toString() || "{}");
-
-//         // Upload encrypted file to storage
-//         const fileId = `${Date.now()}-${Math.random()
-//           .toString(36)
-//           .substr(2, 9)}`;
-//         const filePath = await uploadEncryptedFile(
-//           userId,
-//           fileId,
-//           {
-//             encryptedData: part.data,
-//             iv: Buffer.from(metadata.iv),
-//             authTag: Buffer.from(metadata.authTag),
-//           },
-//           {
-//             name: part.filename,
-//             type: part.type,
-//             size: part.data.length,
-//           }
-//         );
-
-//         // Encrypt file path before storing in database
-//         const encryptedPath = await encrypt(filePath, metadata.key);
-
-//         // 根據文件類型設置 messageType
-//         let messageType = "file";
-//         if (part.type?.startsWith("image/")) {
-//           messageType = "image";
-//         } else if (part.type?.startsWith("video/")) {
-//           messageType = "video";
-//         }
-
-//         // 創建消息數據
-//         const messageData = {
-//           senderId: userId,
-//           messageContent: encryptedPath,
-//           messageType,
-//           encrypted: true,
-//           createdAt: { ".sv": "timestamp" },
-//         };
-
-//         // 使用 RTDB 存儲消息
-//         const messagesRef = dbRef(db, `chatroom/${chatroomId}/messages`);
-//         const newMessageRef = push(messagesRef);
-//         await set(newMessageRef, messageData);
-
-//         uploadedFiles.push({
-//           url: filePath,
-//           type: messageType,
-//           messageId: newMessageRef.key, // 返回消息ID
-//         });
-
-//         //uploadedFiles.push(downloadURL);
-//       }
-//     }
-
-//     return { message: "Files uploaded successfully", files: uploadedFiles };
-//   } catch (error) {
-//     console.error("Error uploading files:", error);
-//     throw new Error("Failed to upload files");
-//   }
-// });

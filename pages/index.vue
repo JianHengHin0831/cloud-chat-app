@@ -7,17 +7,24 @@
       keywords="Chat room, real time, cloud application, chat application"
     />
     <!-- Header (Fixed) -->
-    <Header class="h-16 flex-shrink-0" />
+    <Header
+      class="h-16 flex-shrink-0 md:flex"
+      :class="{ hidden: selectedGroupId }"
+    />
 
-    <div class="flex-1 grid grid-cols-12 bg-gray-100 min-h-0">
+    <div
+      class="hidden flex-1 md:grid grid-cols-12 bg-gray-100 min-h-0 dark:bg-gray-900"
+    >
       <!-- Sidebar (Fixed) -->
-      <div class="col-span-3 grid grid-cols-12 bg-gray-100 min-h-0">
-        <Sidebar class="col-span-2" />
-
+      <div
+        class="md:col-span-5 lg:col-span-3 grid grid-cols-12 bg-gray-100 min-h-0 dark:bg-gray-900"
+      >
+        <Sidebar class="col-span-1 lg:col-span-2" />
+        <div class="md:col-span-1 lg:hidden" />
         <!-- Group List (1 part, Scrollable) -->
         <GroupList
           :groups="groups"
-          class="col-span-10 bg-gray-100 overflow-y-auto"
+          class="col-span-10 lg:col-span-10 ml-2 lg:ml-4 bg-gray-100 dark:bg-gray-800 overflow-y-auto my-2 lg:my-3 rounded-lg"
           :selectedGroupId="selectedGroupId"
           @select="handleGroupSelect"
         />
@@ -32,22 +39,104 @@
         :hasMoreMessages="hasMoreMessages"
         :userId="currentUserId"
         @loadMore="loadMoreMessages"
-        class="col-span-6 bg-white overflow-y-auto min-h-0"
+        @showGroupInfo="showGroupInfo = true"
+        class="md:col-span-7 lg:col-span-6 bg-white dark:bg-gray-800 overflow-y-auto min-h-0"
       />
       <!-- Group Info (1/4 width, Scrollable) -->
       <GroupInfo
-        v-if="selectedGroupMembers.length > 0"
         :members="selectedGroupMembers || []"
         :sharedFiles="sharedFiles"
         :selectedGroupId="selectedGroupId"
         :isMuted="currentGroupMutedState"
         :isPinned="currentGroupPinnedState"
         :currentRole="currentRole"
+        :pinnedMessages="messages.filter((msg) => msg.isPinned)"
+        :isDisband="selectedGroupData?.isDisband"
         @update:isMuted="handleToggleMute"
         @update:isPinned="handleTogglePin"
-        class="col-span-3 border-l hidden md:block bg-white my-3 rounded-lg shadow-md overflow-y-auto min-h-0"
+        class="col-span-3 border-l dark:border-gray-700 hidden lg:block bg-white dark:bg-gray-800 my-2 lg:my-3 rounded-lg shadow-md dark:shadow-gray-900 overflow-y-auto min-h-0"
       />
     </div>
+
+    <!-- Mobile Layout -->
+    <div class="md:hidden flex-1 flex flex-col overflow-hidden">
+      <!-- Mobile Group List (Default View) -->
+      <div v-if="!selectedGroupId" class="flex-1 overflow-y-auto">
+        <MobileGroupList :groups="groups" @select="handleGroupSelect" />
+      </div>
+
+      <!-- Mobile Chat Window -->
+      <div v-else-if="!showGroupInfo" class="flex-1 flex flex-col">
+        <ChatWindow
+          :selectedGroupId="selectedGroupId"
+          :groupData="selectedGroupData || {}"
+          :membersData="selectedGroupMembers || []"
+          :messages="messages"
+          :hasMoreMessages="hasMoreMessages"
+          :userId="currentUserId"
+          @loadMore="loadMoreMessages"
+          @back="selectedGroupId = null"
+          @showGroupInfo="showGroupInfo = true"
+          class="flex-1 overflow-y-auto"
+        />
+      </div>
+
+      <!-- Mobile Group Info -->
+      <div v-else class="flex-1 flex flex-col">
+        <GroupInfo
+          v-if="selectedGroupMembers.length > 0"
+          :members="selectedGroupMembers || []"
+          :sharedFiles="sharedFiles"
+          :selectedGroupId="selectedGroupId"
+          :isMuted="currentGroupMutedState"
+          :isPinned="currentGroupPinnedState"
+          :currentRole="currentRole"
+          :pinnedMessages="messages.filter((msg) => msg.isPinned)"
+          :isDisband="selectedGroupData?.isDisband"
+          @update:isMuted="handleToggleMute"
+          @update:isPinned="handleTogglePin"
+          @back="showGroupInfo = false"
+          class="flex-1 overflow-y-auto"
+        />
+      </div>
+    </div>
+
+    <!-- Mobile Navigation Bar -->
+    <MobileNavBar class="md:hidden" />
+
+    <!-- MD Group Info Modal -->
+    <div
+      v-if="showGroupInfo && selectedGroupMembers.length > 0"
+      class="fixed inset-0 bg-black bg-opacity-50 z-50 md:block lg:hidden"
+      @click="showGroupInfo = false"
+    >
+      <div
+        class="absolute right-0 top-0 h-full w-full md:w-1/2 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out"
+        @click.stop
+      >
+        <GroupInfo
+          :members="selectedGroupMembers || []"
+          :sharedFiles="sharedFiles"
+          :selectedGroupId="selectedGroupId"
+          :isMuted="currentGroupMutedState"
+          :isPinned="currentGroupPinnedState"
+          :currentRole="currentRole"
+          @update:isMuted="handleToggleMute"
+          @update:isPinned="handleTogglePin"
+          @back="showGroupInfo = false"
+          :pinnedMessages="messages.filter((msg) => msg.isPinned)"
+          :isDisband="selectedGroupData?.isDisband"
+          class="h-[calc(100%-4rem)] overflow-y-auto"
+        />
+      </div>
+    </div>
+
+    <!-- Loading Screen -->
+    <LoadingScreen
+      v-if="isInitialLoading"
+      :progress="loadingProgress"
+      :loading-text="loadingText"
+    />
   </div>
 </template>
 <script setup>
@@ -64,6 +153,8 @@ import {
   limitToLast,
   startAt,
   push,
+  set,
+  serverTimestamp,
 } from "firebase/database";
 import {
   getStorage,
@@ -76,8 +167,11 @@ import Sidebar from "@/components/Sidebar.vue";
 import ChatWindow from "@/components/ChatWindow.vue";
 import GroupInfo from "@/components/GroupInfo.vue";
 import GroupList from "@/components/GroupList.vue";
+import { decryptLastMessage } from "@/services/chatroom-service";
 
 import SeoMeta from "@/components/SEOMeta.vue";
+import MobileGroupList from "@/components/MobileGroupList.vue";
+import LoadingScreen from "@/components/LoadingScreen.vue";
 const title = "Cloudtalk - Real-time Chat Rooms";
 const description =
   "Join our community. Chat in real-time, join themed rooms, and find new friends!";
@@ -102,14 +196,13 @@ const currentGroupMutedState = ref(false);
 const currentGroupPinnedState = ref(false);
 const currentRole = computed(() => {
   if (!selectedGroupMembers.value || !currentUserId.value) return null;
-
   const currentMember = selectedGroupMembers.value.find(
     (member) => member?.id === currentUserId.value
   );
 
   return currentMember?.role ?? null; // 使用 ?. 和 ?? 避免报错
 });
-
+const isLoading = ref(false);
 const handleGroupSelect = async (groupId) => {
   selectedGroupId.value = groupId;
   await fetchGroupData(groupId);
@@ -119,126 +212,171 @@ const handleGroupSelect = async (groupId) => {
   await fetchMessages(groupId);
 };
 
-const fetchGroupData = async (groupId) => {
+const lastVisible = ref(null);
+const hasMoreMessages = ref(true);
+let unsubscribeMessages = null;
+const messages = ref([]);
+import {
+  getChatroomInfo,
+  getChatroomMembers,
+  setupMessagesListener,
+  setupGroupDataListener,
+  preload15GroupsMessages,
+} from "@/services/chatroom-service";
+const fetchMessages = async (groupId, loadMore = false) => {
   try {
-    const [chatroomSnapshot, chatroomUsersSnapshot] = await Promise.all([
-      get(dbRef(db, `chatrooms/${groupId}`)),
-      get(dbRef(db, `chatroom_users/${groupId}`)),
-    ]);
-
-    if (chatroomSnapshot.exists()) {
-      selectedGroupData.value = {
-        id: groupId,
-        ...chatroomSnapshot.val(),
-      };
+    if (unsubscribeMessages && Array.isArray(unsubscribeMessages)) {
+      unsubscribeMessages.forEach((unsubscribe) => unsubscribe());
     }
+    unsubscribeMessages = await setupMessagesListener(
+      groupId,
+      (newMessages) => {
+        try {
+          // 处理消息的回调函数
+          if (loadMore) {
+            messages.value = [...messages.value, ...newMessages];
+          } else {
+            messages.value = newMessages;
+          }
 
-    let usersList = [];
+          // 处理文件
+          const files = newMessages
+            .filter((msg) =>
+              ["image", "video", "file"].includes(msg.messageType)
+            )
+            .map((msg) => ({
+              id: msg.id,
+              url: msg.messageContent,
+              type: msg.messageType,
+              name: msg.fileName || "未命名文件",
+              senderId: msg.senderId,
+              createdAt: msg.createdAt,
+            }));
 
-    if (chatroomUsersSnapshot.exists()) {
-      const usersData = chatroomUsersSnapshot.val(); // 获取整个 chatroomId 下的数据
+          sharedFiles.value = files;
 
-      // 转换成 [{ userId: 'xxx', isMuted: false, isPinned: false, ... }, ...]
-      usersList = Object.entries(usersData).map(([userId, userContent]) => ({
-        userId, // 添加 userId 到对象
-        ...userContent, // 展开 userContent 里的字段（isMuted, isPinned, role 等）
-      }));
-    } else {
-      console.log("No users found in this chatroom.");
-    }
+          if (newMessages.length < 100) {
+            hasMoreMessages.value = false;
+          }
 
-    const userPromises = Object.entries(usersList || {}).map(
-      async ([key, userData]) => {
-        const userSnapshot = await get(dbRef(db, `users/${userData.userId}`));
-        if (userSnapshot.exists()) {
-          return {
-            id: userData.userId,
-            avatarUrl: userSnapshot.val().avatarUrl,
-            username: userSnapshot.val().username,
-            email: userSnapshot.val().email,
-            joinedAt: userData.joinedAt,
-            role: userData.role,
-            isMuted: userData.isMuted,
-            isPinned: userData.isPinned,
-          };
+          // 更新加载状态
+          isLoading.value = false;
+        } catch (error) {
+          console.error("处理消息回调失败:", error);
+          isLoading.value = false;
         }
-        return null;
-      }
+      },
+      loadMore,
+      loadMore && messages.value.length > 0 ? messages.value[0].createdAt : null
     );
-
-    const membersData = (await Promise.all(userPromises)).filter(Boolean);
-
-    selectedGroupMembers.value = membersData;
   } catch (error) {
-    console.error("Error fetching group data:", error);
+    console.error("获取消息失败:", error);
+    isLoading.value = false;
   }
 };
 
-let unsubscribeMessages = null;
-const messages = ref([]);
-const lastVisible = ref(null);
-const hasMoreMessages = ref(true);
-
-const fetchMessages = async (groupId, loadMore = false) => {
+let unsubscribeChatroomInfo = null;
+let unsubscribeChatroomMembers = null;
+const fetchGroupData = async (groupId) => {
   try {
-    let messagesQuery = rtdbQuery(
-      dbRef(db, `chatrooms/${groupId}/messages`),
-      orderByChild("createdAt"),
-      limitToLast(100)
+    if (groupId === selectedGroupData.value) {
+      return;
+    }
+    // 设置群组信息和成员的实时监听
+    const chatroomInfoRef = dbRef(db, `chatrooms/${groupId}`);
+    const chatroomMembersRef = dbRef(db, `chatroom_users/${groupId}`);
+    if (unsubscribeChatroomInfo) unsubscribeChatroomInfo();
+    if (unsubscribeChatroomMembers) unsubscribeChatroomMembers();
+
+    // 监听群组信息变化
+    unsubscribeChatroomInfo = onValue(chatroomInfoRef, async (snapshot) => {
+      try {
+        const chatroomData = snapshot.val();
+        if (chatroomData) {
+          selectedGroupData.value = {
+            id: groupId,
+            chatType: chatroomData.chatType,
+            description: chatroomData.description,
+            name: chatroomData.name,
+            photoUrl: chatroomData.photoUrl,
+            isDisband: chatroomData?.isDisband || false,
+          };
+        }
+      } catch (error) {
+        console.error("Error processing chatroom info:", error);
+      }
+    });
+
+    // 监听成员列表变化
+    unsubscribeChatroomMembers = onValue(
+      chatroomMembersRef,
+      async (snapshot) => {
+        try {
+          const members = [];
+          snapshot.forEach((childSnapshot) => {
+            const member = childSnapshot.val();
+            if (member) {
+              members.push({
+                id: childSnapshot.key,
+                ...member,
+              });
+            }
+          });
+          //await fetchGroupData(groupId);
+          const [chatroomData, membersData] = await Promise.all([
+            getChatroomInfo(groupId),
+            getChatroomMembers(groupId),
+          ]);
+
+          // 原有状态更新逻辑
+          if (chatroomData) {
+            selectedGroupData.value = {
+              id: groupId,
+              chatType: chatroomData.chatType,
+              description: chatroomData.description,
+              name: chatroomData.name,
+              photoUrl: chatroomData.photoUrl,
+              isDisband: chatroomData?.isDisband || false,
+            };
+          }
+
+          selectedGroupMembers.value = membersData;
+
+          //selectedGroupMembers.value = members;
+        } catch (error) {
+          console.error("Error processing chatroom members:", error);
+        }
+      }
     );
 
-    if (loadMore && lastVisible.value) {
-      messagesQuery = rtdbQuery(
-        dbRef(db, `chatrooms/${groupId}/messages`),
-        orderByChild("createdAt"),
-        startAt(lastVisible.value + 1),
-        limitToLast(100)
-      );
+    // 初始加载数据
+    const [chatroomData, membersData] = await Promise.all([
+      getChatroomInfo(groupId),
+      getChatroomMembers(groupId),
+    ]);
+
+    // 原有状态更新逻辑
+    if (chatroomData) {
+      selectedGroupData.value = {
+        id: groupId,
+        chatType: chatroomData.chatType,
+        description: chatroomData.description,
+        name: chatroomData.name,
+        photoUrl: chatroomData.photoUrl,
+        isDisband: chatroomData?.isDisband || false,
+      };
     }
 
-    if (unsubscribeMessages) {
-      unsubscribeMessages();
-    }
+    selectedGroupMembers.value = membersData;
 
-    unsubscribeMessages = onValue(messagesQuery, async (snapshot) => {
-      const newMessages = [];
-      snapshot.forEach((childSnapshot) => {
-        const message = childSnapshot.val();
-        newMessages.push({
-          id: childSnapshot.key,
-          ...message,
-          messageContent: message.messageContent || "",
-          senderId: message.senderId || "",
-          createdAt: message.createdAt || 0,
-          messageType: message.messageType || "text",
-        });
-      });
-
-      if (loadMore) {
-        messages.value = [...messages.value, ...newMessages];
-      } else {
-        messages.value = newMessages;
-      }
-
-      const files = newMessages
-        .filter((msg) => ["image", "video", "file"].includes(msg.messageType))
-        .map((msg) => ({
-          id: msg.id,
-          type: msg.messageType,
-          url: msg.messageContent,
-          createdAt: msg.createdAt,
-        }));
-
-      sharedFiles.value = files;
-
-      if (newMessages.length < 100) {
-        hasMoreMessages.value = false;
-      }
-
-      lastVisible.value = newMessages[newMessages.length - 1]?.createdAt;
-    });
+    // 返回清理函数
+    return () => {
+      unsubscribeChatroomInfo();
+      unsubscribeChatroomMembers();
+    };
   } catch (error) {
-    console.error("Error fetching messages:", error);
+    console.error("Error fetching group data:", error);
+    return () => {}; // 返回空函数作为清理函数
   }
 };
 
@@ -255,135 +393,214 @@ const loadMoreMessages = async (groupId) => {
   }
 };
 
-const fetchGroups = async (userId) => {
+// Global listener cleanup references
+let groupsListenerCleanup = null;
+let realtimeListenersCleanup = null;
+
+const initializeApp = async () => {
   try {
+    // Wait for auth to be ready
     await auth.authStateReady();
-    const user = auth.currentUser;
-
-    if (!user) {
-      console.warn("User not authenticated");
-      throw new Error("Authentication required");
-    }
-    // 1. 获取用户所在的群组列表 - 修正查询方式
-    const userGroupsRef = dbRef(db, `user_chatrooms/${userId}`);
-    const userGroupsSnapshot = await get(userGroupsRef);
-
-    if (!userGroupsSnapshot.exists()) {
-      groups.value = [];
-      return []; // 用户没有加入任何群组
+    if (!auth.currentUser) {
+      isInitialLoading.value = false;
+      return;
     }
 
-    // 2. 准备并行获取群组详细信息
-    const groupPromises = [];
-    const userGroups = userGroupsSnapshot.val();
+    const userId = auth.currentUser.uid;
 
-    Object.keys(userGroups).forEach((chatroomId) => {
-      groupPromises.push(
-        (async () => {
-          try {
-            // 2.1 获取群组基本信息
-            const chatroomSnapshot = await get(
-              dbRef(db, `chatrooms/${chatroomId}`)
-            );
-            if (!chatroomSnapshot.exists()) return null;
+    // Phase 1: Setup groups listener and get initial data
+    loadingText.value = "Fetching your groups...";
+    loadingProgress.value = 10;
 
-            const chatroomData = chatroomSnapshot.val();
+    // This will store the initial groups data
+    let initialGroupsData = [];
 
-            // 2.2 获取用户在群组中的状态
-            const userStatusSnapshot = await get(
-              dbRef(db, `chatroom_users/${chatroomId}/${userId}`)
-            );
-            const userStatus = userStatusSnapshot.exists()
-              ? userStatusSnapshot.val()
-              : { isPinned: false };
+    // Setup listener and get initial data in one go
+    const groupsPromise = new Promise((resolve) => {
+      const cleanup = setupGroupsRealtimeListener(userId, (groups) => {
+        // Store initial data
+        initialGroupsData = groups;
+        resolve(groups);
+      });
 
-            // 2.3 获取最后一条消息
-            let lastMessage = null;
-            let lastMessageTime = null;
+      // Store cleanup function
+      groupsListenerCleanup = cleanup;
+    });
 
-            const messagesSnapshot = await get(
-              rtdbQuery(
-                dbRef(db, `chatrooms/${chatroomId}/messages`),
-                orderByChild("createdAt"),
-                limitToLast(1)
-              )
-            );
+    // Phase 2: Get group IDs for preloading
+    loadingText.value = "Preparing messages...";
+    loadingProgress.value = 20;
 
-            if (messagesSnapshot.exists()) {
-              const messages = messagesSnapshot.val();
-              const lastMsg = Object.values(messages)[0];
-              lastMessageTime = lastMsg.createdAt;
-              lastMessage = formatLastMessage(lastMsg, userId);
-            }
+    // Get all group IDs (using one-time get)
+    const userGroupsSnapshot = await get(dbRef(db, `user_chatrooms/${userId}`));
+    const groupIds = userGroupsSnapshot.exists()
+      ? Object.keys(userGroupsSnapshot.val())
+      : [];
 
-            return {
-              id: chatroomId,
-              name: chatroomData.name || "Unnamed Group",
-              photoUrl: chatroomData.photoUrl || "/images/group.png",
-              isPinned: userStatus.isPinned || false,
-              lastMessage,
-              lastMessageTime: lastMessageTime || chatroomData.createdAt || 0,
-              unreadCount: await getUnreadCount(userId, chatroomId),
-            };
-          } catch (error) {
-            console.warn(`Error processing group ${chatroomId}:`, error);
-            return null;
-          }
-        })()
+    // Phase 3: Get last activity times and statuses for sorting
+    const lastActivityPromises = groupIds.map(async (groupId) => {
+      try {
+        // Fetch all required data in parallel
+        const [lastMsg, lastLog, groupStatus, userStatus] = await Promise.all([
+          get(
+            rtdbQuery(
+              dbRef(db, `chatrooms/${groupId}/messages`),
+              orderByChild("createdAt"),
+              limitToLast(1)
+            )
+          ),
+          get(
+            rtdbQuery(
+              dbRef(db, `chatrooms/${groupId}/activity_logs`),
+              orderByChild("timestamp"),
+              limitToLast(1)
+            )
+          ),
+          get(dbRef(db, `chatrooms/${groupId}/isDisband`)),
+          get(dbRef(db, `chatroom_users/${groupId}/${userId}/isPinned`)),
+        ]);
+
+        return {
+          groupId,
+          lastActivity: Math.max(
+            lastMsg.exists()
+              ? Object.values(lastMsg.val())[0]?.createdAt || 0
+              : 0,
+            lastLog.exists()
+              ? Object.values(lastLog.val())[0]?.timestamp || 0
+              : 0
+          ),
+          isDisband: groupStatus.exists() ? groupStatus.val() : false,
+          isPinned: userStatus.exists() ? userStatus.val() : false,
+        };
+      } catch (error) {
+        console.error(`Error fetching data for group ${groupId}:`, error);
+        return {
+          groupId,
+          lastActivity: 0,
+          isDisband: false,
+          isPinned: false,
+        };
+      }
+    });
+
+    const groupActivities = await Promise.all(lastActivityPromises);
+
+    // Sort groups with proper priority: pinned > active > disbanded > by last activity
+    const top15Groups = groupActivities
+      .sort((a, b) => {
+        // Pinned groups first
+        if (a.isPinned !== b.isPinned) {
+          return a.isPinned ? -1 : 1;
+        }
+        // Active groups before disbanded
+        if (a.isDisband !== b.isDisband) {
+          return a.isDisband ? 1 : -1;
+        }
+        // Finally by last activity
+        return b.lastActivity - a.lastActivity;
+      })
+      .slice(0, 15)
+      .map((g) => g.groupId);
+
+    loadingProgress.value = 30;
+
+    // Phase 4: Preload messages
+    loadingText.value = "Loading messages...";
+    loadingProgress.value = 40;
+
+    // Priority load first group
+    if (top15Groups.length > 0) {
+      await preload15GroupsMessages([top15Groups[0]]);
+    }
+    loadingProgress.value = 60;
+
+    // Background load others
+    if (top15Groups.length > 1) {
+      preload15GroupsMessages(top15Groups.slice(1)).catch((e) =>
+        console.warn("Background preload failed:", e)
       );
-    });
-
-    // 3. 等待所有群组数据加载完成
-    let groupsData = (await Promise.all(groupPromises)).filter(Boolean);
-
-    // 4. 排序群组
-    groupsData = sortGroups(groupsData);
-
-    // 5. 更新响应式数据
-    groups.value = groupsData;
-
-    // 6. 如果没有选中群组且存在群组，选择第一个
-    if (!selectedGroupId.value && groupsData.length > 0) {
-      selectedGroupId.value = groupsData[0].id;
-      handleGroupSelect(selectedGroupId.value);
     }
 
-    return groupsData;
+    // Phase 5: Setup other realtime listeners
+    loadingText.value = "Setting up live updates...";
+    loadingProgress.value = 80;
+
+    // Wait for initial groups data (listener is already setup)
+    const groupsData = await groupsPromise;
+
+    // Complete initialization
+    loadingProgress.value = 100;
+    isInitialLoading.value = false;
   } catch (error) {
-    console.error("Error fetching groups:", {
-      error: error.message,
-      userId,
-    });
-    throw error;
+    console.error("Initialization error:", error);
+    isInitialLoading.value = false;
   }
 };
 
-// 辅助函数：排序群组
+const cleanupAllListeners = () => {
+  if (groupsListenerCleanup) {
+    groupsListenerCleanup();
+    groupsListenerCleanup = null;
+  }
+  if (realtimeListenersCleanup) {
+    realtimeListenersCleanup();
+    realtimeListenersCleanup = null;
+  }
+};
+
 const sortGroups = (groups) => {
-  return groups.sort((a, b) => {
-    // 置顶群组排在前面
-    if (a.isPinned !== b.isPinned) {
-      return a.isPinned ? -1 : 1;
+  return [...groups].sort((a, b) => {
+    // 1. 置顶且未解散的群组排在最前面
+    if (a.isPinned && !a.isDisband && !(b.isPinned && !b.isDisband)) {
+      return -1;
     }
-    // 按最后消息时间降序
-    return (b.lastMessageTime || 0) - (a.lastMessageTime || 0);
+    if (b.isPinned && !b.isDisband && !(a.isPinned && !a.isDisband)) {
+      return 1;
+    }
+
+    // 2. 未解散的群组排在已解散群组前面
+    if (a.isDisband !== b.isDisband) {
+      return a.isDisband ? 1 : -1;
+    }
+
+    // 3. 按最后消息时间降序排列 (null/undefined视为0)
+    const aTime = a.lastMessageTime || 0;
+    const bTime = b.lastMessageTime || 0;
+    return bTime - aTime;
   });
 };
+
+watch(
+  selectedGroupId,
+  (newId) => {
+    if (newId) {
+      const currentGroup = groups.value.find((group) => group.id === newId);
+      if (currentGroup) {
+        currentGroupMutedState.value = currentGroup.isMuted;
+        currentGroupPinnedState.value = currentGroup.isPinned;
+      }
+    }
+  },
+  { immediate: true }
+);
 
 // 辅助函数：获取未读消息数（可选）
 const getUnreadCount = async (userId, chatroomId) => {
   try {
+    // 取得使用者上次閱讀訊息的 timestamp
     const lastReadRef = dbRef(
       db,
-      `user_chatrooms/${userId}/${chatroomId}/lastRead`
+      `chatroom_users/${chatroomId}/${userId}/lastRead`
     );
     const lastReadSnapshot = await get(lastReadRef);
     const lastRead = lastReadSnapshot.exists() ? lastReadSnapshot.val() : 0;
 
+    // 查詢所有 createdAt > lastRead 的訊息
     const unreadQuery = rtdbQuery(
       dbRef(db, `chatrooms/${chatroomId}/messages`),
       orderByChild("createdAt"),
-      startAt(lastRead + 1)
+      startAt(lastRead + 1) // 或直接用 lastRead
     );
 
     const unreadSnapshot = await get(unreadQuery);
@@ -396,98 +613,483 @@ const getUnreadCount = async (userId, chatroomId) => {
   }
 };
 
-const formatLastMessage = (messageData, userId) => {
-  const isCurrentUser = messageData.senderId === userId;
-  if (messageData.messageType === "text") {
-    return isCurrentUser
-      ? messageData.messageContent
-      : `${getUserName(messageData.senderId)}: ${messageData.messageContent}`;
+const formatLastMessage = async (messageData, userId, groupId) => {
+  if (messageData.messageType === "system") {
+    return messageData.messageContent;
   }
+
+  // Format mentions in text messages
+  const formatMentions = (content) => {
+    if (!content) return "";
+    return content.replace(/@\{[^|]+\|([^}]+)\}/g, "@$1");
+  };
+
+  const isCurrentUser = messageData.senderId === userId;
+
+  const messageContent = await decryptLastMessage(
+    messageData.messageContent,
+    messageData.senderId,
+    groupId
+  );
+
+  if (messageData.messageType === "text") {
+    const formattedContent = formatMentions(messageContent);
+    return isCurrentUser
+      ? formattedContent
+      : `${await getUserName(messageData.senderId)}: ${formattedContent}`;
+  }
+
+  // Handle non-text messages (images, files, etc.)
   const action = isCurrentUser
-    ? "You send"
-    : `${getUserName(messageData.senderId)} send`;
+    ? "You sent"
+    : `${await getUserName(messageData.senderId)} sent`;
   return `${action} a ${messageData.messageType.toLowerCase()}`;
 };
 
-const sortGroupsByLastMessageTime = (groups) => {
-  return [...groups].sort((a, b) => {
-    if (!a.lastMessageTime && !b.lastMessageTime) return 0;
-    if (a.lastMessageTime && !b.lastMessageTime) return -1;
-    if (!a.lastMessageTime && b.lastMessageTime) return 1;
-
-    return b.lastMessageTime - a.lastMessageTime;
-  });
-};
-
-const selectDefaultGroup = (sortedGroups) => {
-  const pinnedActive = sortedGroups.find((g) => g.isPinned && !g.isDisband);
-  if (pinnedActive) {
-    handleGroupSelect(pinnedActive.id);
-    return;
+const setupGroupsRealtimeListener = (userId, callback) => {
+  // Clean up previous listener if exists
+  if (groupsListenerCleanup) {
+    groupsListenerCleanup();
   }
 
-  const unpinnedActive = sortedGroups.find((g) => !g.isPinned && !g.isDisband);
-  if (unpinnedActive) {
-    handleGroupSelect(unpinnedActive.id);
-    return;
-  }
-
-  handleGroupSelect(sortedGroups[0].id);
-};
-
-const setupRealTimeListeners = (userId, initialGroups) => {
+  const userGroupsRef = dbRef(db, `user_chatrooms/${userId}`);
   const unsubscribeCallbacks = [];
 
-  // 1. 监听每个群组的最后一条消息变化
-  initialGroups.forEach((group) => {
-    const messagesRef = rtdbQuery(
-      dbRef(db, `chatrooms/${group.id}/messages`),
-      orderByChild("createdAt"),
-      limitToLast(1)
-    );
-
-    const unsubscribe = onValue(messagesRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const lastMessage = Object.values(snapshot.val())[0];
-
-        groups.value = groups.value
-          .map((g) => {
-            if (g.id === group.id) {
-              return {
-                ...g,
-                lastMessage: formatLastMessage(lastMessage, userId),
-                lastMessageTime: lastMessage.createdAt,
-              };
-            }
-            return g;
-          })
-          .sort((a, b) => {
-            // 置顶群组优先
-            if (a.isPinned !== b.isPinned) {
-              return a.isPinned ? -1 : 1;
-            }
-            // 按最后消息时间降序
-            return b.lastMessageTime - a.lastMessageTime;
-          });
+  // Main groups listener
+  const unsubscribeUserGroups = onValue(
+    userGroupsRef,
+    async (userGroupsSnapshot) => {
+      if (!userGroupsSnapshot.exists()) {
+        groups.value = [];
+        if (typeof callback === "function") {
+          callback([]);
+        }
+        return;
       }
-    });
 
-    unsubscribeCallbacks.push(unsubscribe);
-  });
+      const userGroups = userGroupsSnapshot.val();
+      const groupIds = Object.keys(userGroups);
 
-  // 2. 监听用户群组列表变化
-  const userGroupsRef = dbRef(db, `user_chatrooms/${userId}`);
-  const userGroupsUnsubscribe = onValue(userGroupsRef, async (snapshot) => {
-    if (snapshot.exists()) {
-      await fetchGroups(userId); // 重新获取群组列表
+      // Process all groups in parallel
+      const groupPromises = groupIds.map(async (chatroomId) => {
+        try {
+          // Get all needed data in parallel using one-time listeners
+          const [chatroomSnap, userStatusSnap, messagesSnap, activitySnap] =
+            await Promise.all([
+              new Promise((resolve) => {
+                const ref = dbRef(db, `chatrooms/${chatroomId}`);
+                onValue(
+                  ref,
+                  (snapshot) => {
+                    resolve(snapshot);
+                  },
+                  { onlyOnce: true }
+                );
+              }),
+              new Promise((resolve) => {
+                const ref = dbRef(db, `chatroom_users/${chatroomId}/${userId}`);
+                onValue(
+                  ref,
+                  (snapshot) => {
+                    resolve(snapshot);
+                  },
+                  { onlyOnce: true }
+                );
+              }),
+              new Promise((resolve) => {
+                const ref = rtdbQuery(
+                  dbRef(db, `chatrooms/${chatroomId}/messages`),
+                  orderByChild("createdAt"),
+                  limitToLast(1)
+                );
+                onValue(
+                  ref,
+                  (snapshot) => {
+                    resolve(snapshot);
+                  },
+                  { onlyOnce: true }
+                );
+              }),
+              new Promise((resolve) => {
+                const ref = rtdbQuery(
+                  dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
+                  orderByChild("timestamp"),
+                  limitToLast(1)
+                );
+                onValue(
+                  ref,
+                  (snapshot) => {
+                    resolve(snapshot);
+                  },
+                  { onlyOnce: true }
+                );
+              }),
+            ]);
+
+          // Process group data (identical to original)
+          const chatroomData = chatroomSnap.exists()
+            ? chatroomSnap.val()
+            : null;
+          const userStatus = userStatusSnap.exists()
+            ? userStatusSnap.val()
+            : { isPinned: false };
+
+          // Process last message (identical to original)
+          let lastMessage = null;
+          let lastMessageTime = null;
+          let lastMessageType = null;
+
+          const lastRegularMessage = messagesSnap.exists()
+            ? Object.values(messagesSnap.val())[0]
+            : null;
+
+          const lastActivityLog = activitySnap.exists()
+            ? Object.values(activitySnap.val())[0]
+            : null;
+
+          if (lastRegularMessage && lastActivityLog) {
+            if (lastRegularMessage.createdAt > lastActivityLog.timestamp) {
+              lastMessage = await formatLastMessage(
+                lastRegularMessage,
+                userId,
+                chatroomId
+              );
+              lastMessageTime = lastRegularMessage.createdAt;
+              if (lastRegularMessage.isDeleted) {
+                lastMessageType = "deleted";
+                lastMessage = "This message has been deleted";
+              }
+            } else {
+              lastMessage = lastActivityLog.details;
+              lastMessageTime = lastActivityLog.timestamp;
+              lastMessageType = "system";
+            }
+          } else if (lastRegularMessage) {
+            lastMessage = await formatLastMessage(
+              lastRegularMessage,
+              userId,
+              chatroomId
+            );
+            lastMessageTime = lastRegularMessage.createdAt;
+
+            lastMessageType = lastRegularMessage.messageType;
+            if (lastRegularMessage.isDeleted) {
+              lastMessageType = "deleted";
+              lastMessage = "This message has been deleted";
+            }
+          } else if (lastActivityLog) {
+            lastMessage = lastActivityLog.details;
+            lastMessageTime = lastActivityLog.timestamp;
+            lastMessageType = "system";
+          }
+
+          // Return identical group object structure
+          return {
+            id: chatroomId,
+            name: chatroomData?.name || "Unnamed Group",
+            photoUrl: chatroomData?.photoUrl || "/images/group.png",
+            isPinned: userStatus.isPinned || false,
+            isMuted: userStatus.isMuted || false,
+            isDisband: chatroomData?.isDisband || false,
+            lastMessage,
+            lastMessageTime: lastMessageTime || chatroomData?.createdAt || 0,
+            lastMessageType,
+            unreadCount: await getUnreadCount(userId, chatroomId),
+          };
+        } catch (error) {
+          console.warn(`Error processing group ${chatroomId}:`, error);
+          return null;
+        }
+      });
+
+      // Process and sort groups (identical to original)
+      const groupsData = (await Promise.all(groupPromises)).filter(Boolean);
+      const sortedGroups = sortGroups(groupsData);
+      // Update reactive data
+      groups.value = sortedGroups;
+
+      // Auto-select first group on desktop (identical to original)
+      if (
+        !selectedGroupId.value &&
+        sortedGroups.length > 0 &&
+        window.innerWidth >= 768
+      ) {
+        selectedGroupId.value = sortedGroups[0].id;
+        handleGroupSelect(selectedGroupId.value);
+      }
+
+      // Call callback with initial data if provided
+      callback?.(sortedGroups);
+
+      // Setup listeners for each group's messages and activity logs
+      groupIds.forEach((groupId) => {
+        // Listen for new messages
+        const messagesRef = rtdbQuery(
+          dbRef(db, `chatrooms/${groupId}/messages`),
+          orderByChild("createdAt"),
+          limitToLast(1)
+        );
+        const unsubscribeMessages1 = onValue(messagesRef, async (snapshot) => {
+          if (snapshot.exists()) {
+            // Trigger a refresh of the groups data
+            const userGroupsSnapshot = await get(userGroupsRef);
+            if (userGroupsSnapshot.exists()) {
+              const userGroups = userGroupsSnapshot.val();
+              const groupIds = Object.keys(userGroups);
+              // Process groups again
+              const groupPromises = groupIds.map(async (chatroomId) => {
+                try {
+                  const [
+                    chatroomSnap,
+                    userStatusSnap,
+                    messagesSnap,
+                    activitySnap,
+                  ] = await Promise.all([
+                    get(dbRef(db, `chatrooms/${chatroomId}`)),
+                    get(dbRef(db, `chatroom_users/${chatroomId}/${userId}`)),
+                    get(
+                      rtdbQuery(
+                        dbRef(db, `chatrooms/${chatroomId}/messages`),
+                        orderByChild("createdAt"),
+                        limitToLast(1)
+                      )
+                    ),
+                    get(
+                      rtdbQuery(
+                        dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
+                        orderByChild("timestamp"),
+                        limitToLast(1)
+                      )
+                    ),
+                  ]);
+
+                  // ... (rest of the group processing logic)
+                  const chatroomData = chatroomSnap.exists()
+                    ? chatroomSnap.val()
+                    : null;
+                  const userStatus = userStatusSnap.exists()
+                    ? userStatusSnap.val()
+                    : { isPinned: false };
+                  let lastMessage = null;
+                  let lastMessageTime = null;
+                  let lastMessageType = null;
+
+                  const lastRegularMessage = messagesSnap.exists()
+                    ? Object.values(messagesSnap.val())[0]
+                    : null;
+                  const lastActivityLog = activitySnap.exists()
+                    ? Object.values(activitySnap.val())[0]
+                    : null;
+
+                  if (lastRegularMessage && lastActivityLog) {
+                    if (
+                      lastRegularMessage.createdAt > lastActivityLog.timestamp
+                    ) {
+                      lastMessage = await formatLastMessage(
+                        lastRegularMessage,
+                        userId,
+                        chatroomId
+                      );
+                      lastMessageTime = lastRegularMessage.createdAt;
+                      lastMessageType = lastRegularMessage.messageType;
+                      if (lastRegularMessage.isDeleted) {
+                        lastMessageType = "deleted";
+                        lastMessage = "This message has been deleted";
+                      }
+                    } else {
+                      lastMessage = lastActivityLog.details;
+                      lastMessageTime = lastActivityLog.timestamp;
+                      lastMessageType = "system";
+                    }
+                  } else if (lastRegularMessage) {
+                    lastMessage = await formatLastMessage(
+                      lastRegularMessage,
+                      userId,
+                      chatroomId
+                    );
+                    lastMessageTime = lastRegularMessage.createdAt;
+                    lastMessageType = lastRegularMessage.messageType;
+                    if (lastRegularMessage.isDeleted) {
+                      lastMessageType = "deleted";
+                      lastMessage = "This message has been deleted";
+                    }
+                  } else if (lastActivityLog) {
+                    lastMessage = lastActivityLog.details;
+                    lastMessageTime = lastActivityLog.timestamp;
+                    lastMessageType = "system";
+                  }
+
+                  return {
+                    id: chatroomId,
+                    name: chatroomData?.name || "Unnamed Group",
+                    photoUrl: chatroomData?.photoUrl || "/images/group.png",
+                    isPinned: userStatus.isPinned || false,
+                    isMuted: userStatus.isMuted || false,
+                    isDisband: chatroomData?.isDisband || false,
+                    lastMessage,
+                    lastMessageTime:
+                      lastMessageTime || chatroomData?.createdAt || 0,
+                    lastMessageType,
+                    unreadCount: await getUnreadCount(userId, chatroomId),
+                  };
+                } catch (error) {
+                  console.warn(`Error processing group ${chatroomId}:`, error);
+                  return null;
+                }
+              });
+
+              const groupsData = (await Promise.all(groupPromises)).filter(
+                Boolean
+              );
+              const sortedGroups = sortGroups(groupsData);
+              groups.value = sortedGroups;
+              callback?.(sortedGroups);
+            }
+          }
+        });
+        unsubscribeCallbacks.push(unsubscribeMessages1);
+
+        // Listen for activity logs
+        const activityLogsRef = rtdbQuery(
+          dbRef(db, `chatrooms/${groupId}/activity_logs`),
+          orderByChild("timestamp"),
+          limitToLast(1)
+        );
+        const unsubscribeActivityLogs = onValue(
+          activityLogsRef,
+          async (snapshot) => {
+            if (snapshot.exists()) {
+              // Trigger a refresh of the groups data (same as above)
+              const userGroupsSnapshot = await get(userGroupsRef);
+              if (userGroupsSnapshot.exists()) {
+                const userGroups = userGroupsSnapshot.val();
+                const groupIds = Object.keys(userGroups);
+                // Process groups again (same as above)
+                const groupPromises = groupIds.map(async (chatroomId) => {
+                  try {
+                    const [
+                      chatroomSnap,
+                      userStatusSnap,
+                      messagesSnap,
+                      activitySnap,
+                    ] = await Promise.all([
+                      get(dbRef(db, `chatrooms/${chatroomId}`)),
+                      get(dbRef(db, `chatroom_users/${chatroomId}/${userId}`)),
+                      get(
+                        rtdbQuery(
+                          dbRef(db, `chatrooms/${chatroomId}/messages`),
+                          orderByChild("createdAt"),
+                          limitToLast(1)
+                        )
+                      ),
+                      get(
+                        rtdbQuery(
+                          dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
+                          orderByChild("timestamp"),
+                          limitToLast(1)
+                        )
+                      ),
+                    ]);
+
+                    const chatroomData = chatroomSnap.exists()
+                      ? chatroomSnap.val()
+                      : null;
+                    const userStatus = userStatusSnap.exists()
+                      ? userStatusSnap.val()
+                      : { isPinned: false };
+                    let lastMessage = null;
+                    let lastMessageTime = null;
+                    let lastMessageType = null;
+
+                    const lastRegularMessage = messagesSnap.exists()
+                      ? Object.values(messagesSnap.val())[0]
+                      : null;
+                    const lastActivityLog = activitySnap.exists()
+                      ? Object.values(activitySnap.val())[0]
+                      : null;
+
+                    if (lastRegularMessage && lastActivityLog) {
+                      if (
+                        lastRegularMessage.createdAt > lastActivityLog.timestamp
+                      ) {
+                        lastMessage = await formatLastMessage(
+                          lastRegularMessage,
+                          userId,
+                          chatroomId
+                        );
+                        lastMessageTime = lastRegularMessage.createdAt;
+                        lastMessageType = lastRegularMessage.messageType;
+                        if (lastRegularMessage.isDeleted) {
+                          lastMessageType = "deleted";
+                          lastMessage = "This message has been deleted";
+                        }
+                      } else {
+                        lastMessage = lastActivityLog.details;
+                        lastMessageTime = lastActivityLog.timestamp;
+                        lastMessageType = "system";
+                      }
+                    } else if (lastRegularMessage) {
+                      lastMessage = await formatLastMessage(
+                        lastRegularMessage,
+                        userId,
+                        chatroomId
+                      );
+                      lastMessageTime = lastRegularMessage.createdAt;
+                      lastMessageType = lastRegularMessage.messageType;
+                      if (lastRegularMessage.isDeleted) {
+                        lastMessageType = "deleted";
+                        lastMessage = "This message has been deleted";
+                      }
+                    } else if (lastActivityLog) {
+                      lastMessage = lastActivityLog.details;
+                      lastMessageTime = lastActivityLog.timestamp;
+                      lastMessageType = "system";
+                    }
+
+                    return {
+                      id: chatroomId,
+                      name: chatroomData?.name || "Unnamed Group",
+                      photoUrl: chatroomData?.photoUrl || "/images/group.png",
+                      isPinned: userStatus.isPinned || false,
+                      isMuted: userStatus.isMuted || false,
+                      isDisband: chatroomData?.isDisband || false,
+                      lastMessage,
+                      lastMessageTime:
+                        lastMessageTime || chatroomData?.createdAt || 0,
+                      lastMessageType,
+                      unreadCount: await getUnreadCount(userId, chatroomId),
+                    };
+                  } catch (error) {
+                    console.warn(
+                      `Error processing group ${chatroomId}:`,
+                      error
+                    );
+                    return null;
+                  }
+                });
+
+                const groupsData = (await Promise.all(groupPromises)).filter(
+                  Boolean
+                );
+                const sortedGroups = sortGroups(groupsData);
+                groups.value = sortedGroups;
+                callback?.(sortedGroups);
+              }
+            }
+          }
+        );
+        unsubscribeCallbacks.push(unsubscribeActivityLogs);
+      });
     }
-  });
-  unsubscribeCallbacks.push(userGroupsUnsubscribe);
+  );
 
-  // 返回清理函数
-  return () => {
+  // Store cleanup function
+  groupsListenerCleanup = () => {
+    unsubscribeUserGroups();
     unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe());
   };
+
+  return groupsListenerCleanup;
 };
 
 const getUserName = async (userId) => {
@@ -505,9 +1107,6 @@ const getUserName = async (userId) => {
 
 const authUnsubscribe = auth.onAuthStateChanged((user) => {
   if (user) {
-    fetchGroups(user.uid);
-    currentGroupMutedState.value = user.isMuted;
-    currentGroupPinnedState.value = user.isPinned;
     currentUserId.value = user.uid;
   } else {
     groups.value = [];
@@ -515,13 +1114,13 @@ const authUnsubscribe = auth.onAuthStateChanged((user) => {
 });
 
 let cleanupListeners = null;
-onMounted(async () => {
-  await auth.authStateReady();
-  if (auth.currentUser) {
-    const groupsData = await fetchGroups(auth.currentUser.uid);
-    if (cleanupListeners) cleanupListeners();
-    cleanupListeners = setupRealTimeListeners(auth.currentUser.uid, groupsData);
-  }
+let cleanupGroupData = null;
+const isInitialLoading = ref(true);
+const loadingProgress = ref(0);
+const loadingText = ref("Loading your chats...");
+
+onMounted(() => {
+  initializeApp();
 });
 
 //pin and mute
@@ -555,10 +1154,15 @@ onUnmounted(() => {
   authUnsubscribe();
 
   // 2. 取消消息監聽
-  if (unsubscribeMessages) unsubscribeMessages();
+  if (unsubscribeMessages && Array.isArray(unsubscribeMessages)) {
+    unsubscribeMessages.forEach((unsubscribe) => unsubscribe());
+  }
 
   // 3. 取消群組即時更新監聽
   if (cleanupListeners) cleanupListeners();
+  // 4. 取消群組數據監聽
+  if (cleanupGroupData) cleanupGroupData();
+  //cleanupGroupData = await fetchGroupData(selectedGroupId.value);
 });
 
 const handleTogglePin = async (newPinnedState) => {
@@ -575,530 +1179,131 @@ const handleTogglePin = async (newPinnedState) => {
 
     currentGroupPinnedState.value = newPinnedState;
 
+    groups.value = groups.value.map((group) => {
+      if (group.id === selectedGroupId.value) {
+        return { ...group, isPinned: newPinnedState };
+      }
+      return group;
+    });
+
     const memberIndex = selectedGroupMembers.value.findIndex(
       (m) => m.id === userId
     );
     if (memberIndex !== -1) {
       selectedGroupMembers.value[memberIndex].isPinned = newPinnedState;
     }
-
-    await fetchGroups(userId);
   } catch (error) {
     console.error("Error toggling pin:", error);
   }
 };
-// import { ref, onMounted, onUnmounted, watch } from "vue";
-// import {
-//   collection,
-//   query,
-//   where,
-//   getDocs,
-//   onSnapshot,
-//   doc,
-//   getDoc,
-//   orderBy,
-//   limit,
-//   updateDoc,
-// } from "firebase/firestore";
-// import {
-//   getStorage,
-//   ref as storageRef,
-//   getDownloadURL,
-// } from "firebase/storage";
-// import { auth, db } from "~/firebase/firebase.js";
-// import Header from "@/components/Header.vue";
-// import Sidebar from "@/components/Sidebar.vue";
-// import ChatWindow from "@/components/ChatWindow.vue";
-// import GroupInfo from "@/components/GroupInfo.vue";
-// import GroupList from "@/components/GroupList.vue";
 
-// //SEO Meta
-// import SeoMeta from "@/components/SEOMeta.vue";
-// const title = "Cloudtalk - Real-time Chat Rooms";
-// const description =
-//   "Join our community. Chat in real-time, join themed rooms, and find new friends!";
-
-// useSeoMeta({
-//   title,
-//   description,
-//   ogTitle: title,
-//   ogDescription: description,
-//   ogImage: "/images/home-og.jpg",
-//   twitterCard: "summary_large_image",
-// });
-
-// //script
-// const groups = ref([]);
-// const storage = getStorage();
-// const selectedGroupId = ref(null);
-// const selectedGroupData = ref(null);
-// const selectedGroupMembers = ref([]);
-// const sharedFiles = ref([]); // 存储共享文件
-// const currentUserId = ref(null);
-// const currentGroupMutedState = ref(false);
-// const currentGroupPinnedState = ref(false);
-// const currentRole = computed(() => {
-//   if (!selectedGroupMembers.value || !currentUserId.value) return null;
-//   selectedGroupMembers.value?.forEach((member) => {
-//     if (member.id === currentUserId.value) {
-//       return member.role;
-//     }
-//   });
-// });
-
-// const handleGroupSelect = async (groupId) => {
-//   selectedGroupId.value = groupId;
-//   await fetchGroupData(groupId);
-//   messages.value = [];
-//   hasMoreMessages.value = true;
-//   lastVisible.value = null;
-//   await fetchMessages(groupId);
-// };
-
-// const fetchGroupData = async (groupId) => {
-//   try {
-//     // 并行获取群组数据和成员数据
-//     const [chatroomDoc, chatroomUsersSnapshot] = await Promise.all([
-//       getDoc(doc(db, "chatroom", groupId)),
-//       getDocs(
-//         query(
-//           collection(db, "chatroom_user"),
-//           where("chatroomId", "==", groupId)
-//         )
-//       ),
-//     ]);
-
-//     if (chatroomDoc.exists()) {
-//       selectedGroupData.value = {
-//         id: groupId,
-//         ...chatroomDoc.data(),
-//       };
-//     }
-
-//     // 处理成员数据
-//     const userPromises = chatroomUsersSnapshot.docs.map(async (docSnapshot) => {
-//       const data = docSnapshot.data();
-//       const userDoc = await getDoc(doc(db, "users", data.userId));
-//       if (userDoc.exists()) {
-//         return {
-//           id: data.userId,
-//           avatarUrl: userDoc.data().avatarUrl,
-//           username: userDoc.data().username,
-//           email: userDoc.data().email,
-//           joinedAt: data.joinedAt,
-//           role: data.role,
-//           isMuted: data.isMuted,
-//           isPinned: data.isPinned,
-//         };
-//       }
-//       return null;
-//     });
-
-//     const membersData = (await Promise.all(userPromises)).filter(Boolean);
-//     selectedGroupMembers.value = membersData;
-//   } catch (error) {
-//     console.error("Error fetching group data:", error);
-//   }
-// };
-
-// let unsubscribeMessages = null;
-// const messages = ref([]);
-// const lastVisible = ref(null);
-// const hasMoreMessages = ref(true);
-
-// const fetchMessages = async (groupId, loadMore = false) => {
-//   try {
-//     let messagesQuery = query(
-//       collection(db, "chatroom", groupId, "messages"),
-//       orderBy("createdAt", "desc"),
-//       limit(100)
-//     );
-
-//     if (loadMore && lastVisible.value) {
-//       messagesQuery = query(messagesQuery, startAfter(lastVisible.value));
-//     }
-
-//     // 取消之前的監聽
-//     if (unsubscribeMessages) {
-//       unsubscribeMessages();
-//     }
-
-//     // 監聽新消息
-//     unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-//       const newMessages = snapshot.docs.map((doc) => ({
-//         id: doc.id,
-//         ...doc.data(),
-//       }));
-
-//       // 更新消息列表
-//       if (loadMore) {
-//         messages.value = [...messages.value, ...newMessages];
-//       } else {
-//         messages.value = newMessages;
-//       }
-
-//       // 更新共享文件列表
-//       const files = newMessages
-//         .filter((msg) => ["image", "video", "file"].includes(msg.messageType))
-//         .map((msg) => ({
-//           id: msg.id,
-//           type: msg.messageType,
-//           url: msg.messageContent,
-//           createdAt: msg.createdAt,
-//         }));
-
-//       sharedFiles.value = files;
-
-//       // 檢查是否還有更多消息
-//       if (newMessages.length < 100) {
-//         hasMoreMessages.value = false;
-//       }
-
-//       lastVisible.value = snapshot.docs[snapshot.docs.length - 1];
-//     });
-//   } catch (error) {
-//     console.error("Error fetching messages:", error);
-//   }
-// };
-
-// const loadMoreMessages = async (groupId) => {
-//   if (groupId) {
-//     await fetchMessages(groupId, true);
-//   }
-// };
-
-// const fetchGroups = async (userId) => {
-//   try {
-//     const chatroomUsersQuery = query(
-//       collection(db, "chatroom_user"),
-//       where("userId", "==", userId)
-//     );
-//     const chatroomUsersSnapshot = await getDocs(chatroomUsersQuery);
-//     const groupsData = [];
-//     const messagePromises = []; // 存储所有消息加载的 Promise
-
-//     // 1. 先加载所有群组基本信息
-//     for (const docSnapshot of chatroomUsersSnapshot.docs) {
-//       const chatroomId = docSnapshot.data().chatroomId;
-//       const isPinned = docSnapshot.data().isPinned;
-
-//       const chatroomDoc = await getDoc(doc(db, "chatroom", chatroomId));
-//       if (chatroomDoc.exists()) {
-//         const chatroomData = chatroomDoc.data();
-
-//         const group = {
-//           id: chatroomId,
-//           name: chatroomData.name,
-//           photoUrl: chatroomData.photoUrl,
-//           isDisband: chatroomData.isDisband || false,
-//           isPinned,
-//           lastMessage: null,
-//           lastMessageTime: null,
-//         };
-
-//         // 2. 对每个群组获取最后一条消息（改用 getDocs 而不是 onSnapshot）
-//         const messagesQuery = query(
-//           collection(db, "chatroom", chatroomId, "messages"),
-//           orderBy("createdAt", "desc"),
-//           limit(1)
-//         );
-
-//         messagePromises.push(
-//           getDocs(messagesQuery).then((messagesSnapshot) => {
-//             if (!messagesSnapshot.empty) {
-//               const lastMessage = messagesSnapshot.docs[0].data();
-//               group.lastMessageTime = lastMessage.createdAt;
-//               group.lastMessage = formatLastMessage(lastMessage, userId);
-//             }
-//             return group;
-//           })
-//         );
-
-//         groupsData.push(group);
-//       }
-//     }
-
-//     // 3. 等待所有消息加载完成
-//     const groupsWithMessages = await Promise.all(messagePromises);
-
-//     // 4. 现在所有 lastMessageTime 都已加载，可以正确排序
-//     const sortedGroups = sortGroupsByLastMessageTime(groupsWithMessages);
-//     groups.value = sortedGroups;
-
-//     // 5. 设置默认群组
-//     if (!selectedGroupId.value && sortedGroups.length > 0) {
-//       selectDefaultGroup(sortedGroups);
-//     }
-
-//     // 初始加载后设置监听器
-
-//     return setupRealTimeListeners(userId, sortedGroups);
-//   } catch (error) {
-//     console.error("Error fetching groups:", error);
-//   }
-// };
-// const cleanupListeners = ref(null);
-// onMounted(async () => {
-//   try {
-//     const userId = currentUserId.value;
-//     cleanupListeners.value = await fetchGroups(userId);
-//   } catch (err) {
-//     console.error("Component mount error:", err);
-//   }
-// });
-
-// onUnmounted(() => {
-//   cleanupListeners.value?.();
-// });
-
-// // 选择默认群组
-// const selectDefaultGroup = (sortedGroups) => {
-//   // 1. 先找 isPinned && !isDisband 的群组（按已排序的顺序）
-//   const pinnedActive = sortedGroups.find((g) => g.isPinned && !g.isDisband);
-//   if (pinnedActive) {
-//     handleGroupSelect(pinnedActive.id);
-//     return;
-//   }
-
-//   // 2. 再找 !isPinned && !isDisband 的群组（按已排序的顺序）
-//   const unpinnedActive = sortedGroups.find((g) => !g.isPinned && !g.isDisband);
-//   if (unpinnedActive) {
-//     handleGroupSelect(unpinnedActive.id);
-//     return;
-//   }
-
-//   // 3. 最后选择第一个群组（已排序）
-//   handleGroupSelect(sortedGroups[0].id);
-// };
-
-// // 修改 setupRealTimeListeners 函数：
-// const setupRealTimeListeners = (userId, initialGroups) => {
-//   const unsubscribeCallbacks = [];
-
-//   // 为每个群组设置消息监听器
-//   initialGroups.forEach((group) => {
-//     const messagesQuery = query(
-//       collection(db, "chatroom", group.id, "messages"),
-//       orderBy("createdAt", "desc"),
-//       limit(1)
-//     );
-
-//     const unsubscribe = onSnapshot(messagesQuery, (messagesSnapshot) => {
-//       if (!messagesSnapshot.empty) {
-//         const lastMessageDoc = messagesSnapshot.docs[0];
-//         const lastMessageData = lastMessageDoc.data();
-
-//         // 创建更新后的群组数组
-//         const updatedGroups = groups.value.map((g) => {
-//           if (g.id === group.id) {
-//             return {
-//               ...g,
-//               lastMessage: formatLastMessage(lastMessageData, userId),
-//               lastMessageTime: lastMessageData.createdAt,
-//             };
-//           }
-//           return g;
-//         });
-
-//         // 重新排序
-//         const sortedGroups = sortGroupsByLastMessageTime(updatedGroups);
-
-//         // 更新响应式数据
-//         groups.value = sortedGroups;
-//       }
-//     });
-
-//     unsubscribeCallbacks.push(unsubscribe);
-//   });
-
-//   return () => {
-//     unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe());
-//   };
-// };
-
-// const getUserName = async (userId) => {
-//   try {
-//     const userDoc = await getDoc(doc(db, "users", userId));
-//     if (userDoc.exists()) {
-//       return userDoc.data().username;
-//     }
-//     return "Unknown User"; // 如果用戶不存在，返回默認值
-//   } catch (error) {
-//     console.error("Error fetching user:", error);
-//     return "Unknown User";
-//   }
-// };
-
-// const authUnsubscribe = auth.onAuthStateChanged((user) => {
-//   if (user) {
-//     fetchGroups(user.uid);
-//     currentGroupMutedState.value = user.isMuted;
-//     currentGroupPinnedState.value = user.isPinned;
-//     currentUserId.value = user.uid;
-//   } else {
-//     groups.value = [];
-//   }
-// });
-
-// onUnmounted(() => {
-//   authUnsubscribe();
-//   if (unsubscribeMessages) {
-//     unsubscribeMessages();
-//   }
-// });
-
-// //pin and mute
-
-// const handleToggleMute = async (newMutedState) => {
-//   try {
-//     const userId = auth.currentUser?.uid;
-//     if (!userId || !selectedGroupId.value) return;
-
-//     const chatroomUserDocRef = doc(
-//       db,
-//       "chatroom_user",
-//       `${selectedGroupId.value}_${userId}`
-//     );
-
-//     await updateDoc(chatroomUserDocRef, {
-//       isMuted: newMutedState,
-//     });
-
-//     currentGroupMutedState.value = newMutedState;
-
-//     // Update local state
-//     const memberIndex = selectedGroupMembers.value.findIndex(
-//       (m) => m.id === userId
-//     );
-//     if (memberIndex !== -1) {
-//       selectedGroupMembers.value[memberIndex].isMuted = newMutedState;
-//     }
-//   } catch (error) {
-//     console.error("Error toggling mute:", error);
-//   }
-// };
-
-// const handleTogglePin = async (newPinnedState) => {
-//   try {
-//     const userId = auth.currentUser?.uid;
-//     if (!userId || !selectedGroupId.value) return;
-
-//     const chatroomUserDocRef = doc(
-//       db,
-//       "chatroom_user",
-//       `${selectedGroupId.value}_${userId}`
-//     );
-
-//     await updateDoc(chatroomUserDocRef, {
-//       isPinned: newPinnedState,
-//     });
-
-//     currentGroupPinnedState.value = newPinnedState;
-
-//     // Update local state
-//     const memberIndex = selectedGroupMembers.value.findIndex(
-//       (m) => m.id === userId
-//     );
-//     if (memberIndex !== -1) {
-//       selectedGroupMembers.value[memberIndex].isPinned = newPinnedState;
-//     }
-
-//     // Refresh groups list to reflect pin changes
-//     await fetchGroups(userId);
-//   } catch (error) {
-//     console.error("Error toggling pin:", error);
-//   }
-// };
-
-// const fetchMessages = async (groupId, loadMore = false) => {
-//   try {
-//     let messagesQuery = rtdbQuery(
-//       dbRef(db, `chatrooms/${groupId}/messages`),
-//       orderByChild("createdAt"),
-//       limitToLast(100)
-//     );
-
-//     if (loadMore && lastVisible.value) {
-//       messagesQuery = rtdbQuery(
-//         dbRef(db, `chatrooms/${groupId}/messages`),
-//         orderByChild("createdAt"),
-//         startAt(lastVisible.value + 1),
-//         limitToLast(100)
-//       );
-//     }
-
-//     if (unsubscribeMessages) {
-//       unsubscribeMessages();
-//     }
-
-//     unsubscribeMessages = onValue(messagesQuery, async (snapshot) => {
-//       const messagesData = snapshot.val() || {};
-//       const { decrypt } = useE2EE();
-//       await decrypt.initialize(currentUserId.value);
-
-//       const decryptedMessages = await Promise.all(
-//         Object.entries(messagesData).map(async ([id, message]) => {
-//           let decryptedContent = message.messageContent;
-//           let decryptedPath = null;
-
-//           // 如果消息是加密的，进行解密
-//           if (message.encrypted) {
-//             try {
-//               // 先解密消息内容获取加密的文件路径
-//               decryptedPath = await decrypt(
-//                 message.senderId,
-//                 message.messageContent
-//               );
-
-//               // 如果是文件类型的消息，解密文]件内容
-//               if (["image", "video", "file".includes(message.messageType)]) {
-//                 decryptedContent = await downloadFile(decryptedPath);
-//               } else {
-//                 decryptedContent = decryptedPath;
-//               }
-//             } catch (error) {
-//               console.error("Failed to decrypt message:", error);
-//               decryptedContent = "[加密消息]";
-//             }
-//           }
-
-//           return {
-//             id,
-//             ...message,
-//             messageContent: decryptedContent,
-//           };
-//         })
-//       );
-
-//       const newMessages = decryptedMessages.sort(
-//         (a, b) => b.createdAt - a.createdAt
-//       );
-
-//       if (loadMore) {
-//         messages.value = [...messages.value, ...newMessages];
-//       } else {
-//         messages.value = newMessages;
-//       }
-
-//       const files = newMessages
-//         .filter((msg) => ["image", "video", "file"].includes(msg.messageType))
-//         .map((msg) => ({
-//           id: msg.id,
-//           type: msg.messageType,
-//           url: msg.messageContent,
-//           createdAt: msg.createdAt,
-//         }));
-
-//       sharedFiles.value = files;
-
-//       if (newMessages.length < 100) {
-//         hasMoreMessages.value = false;
-//       }
-
-//       lastVisible.value = newMessages[newMessages.length - 1]?.createdAt;
-//     });
-//   } catch (error) {
-//     console.error("Error fetching messages:", error);
-//   }
-// };
+// Add new ref for mobile group info view
+const showGroupInfo = ref(false);
+
+const router = useRouter();
+
+const checkIsGroupJoined = async (groupId) => {
+  if (!auth.currentUser?.uid) return false;
+  const userGroupsRef = dbRef(db, `user_chatrooms/${auth.currentUser.uid}`);
+  const userGroupsSnapshot = await get(userGroupsRef);
+  if (userGroupsSnapshot.exists()) {
+    const userGroups = userGroupsSnapshot.val();
+    return userGroups[groupId];
+  }
+};
+
+// 1. 在 selectedGroupId 变化时记录时间戳
+watch(selectedGroupId, async (newGroupId, oldGroupId) => {
+  if (
+    oldGroupId &&
+    newGroupId !== oldGroupId &&
+    currentUserId.value &&
+    (await checkIsGroupJoined(newGroupId))
+  ) {
+    // 如果切换了聊天组，记录前一个 groupId 和当前时间戳
+    await set(
+      dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
+      Date.now()
+    );
+    await set(
+      dbRef(db, `chatroom_users/${oldGroupId}/${currentUserId.value}/lastRead`),
+      Date.now()
+    );
+  }
+});
+
+// 2. 在页面卸载时记录时间戳
+onBeforeUnmount(async () => {
+  if (
+    selectedGroupId.value &&
+    currentUserId.value &&
+    (await checkIsGroupJoined(selectedGroupId.value))
+  ) {
+    // 记录当前 groupId 和时间戳
+    set(
+      dbRef(
+        db,
+        `chatroom_users/${selectedGroupId.value}/${currentUserId.value}/lastRead`
+      ),
+      Date.now()
+    );
+  }
+});
+
+// 3. 监听路由切换时记录
+router.beforeEach(async (to, from) => {
+  if (
+    selectedGroupId.value &&
+    currentUserId.value &&
+    (await checkIsGroupJoined(selectedGroupId.value))
+  ) {
+    // 切换页面时记录 lastRead 时间戳
+    await set(
+      dbRef(
+        db,
+        `chatroom_users/${selectedGroupId.value}/${currentUserId.value}/lastRead`
+      ),
+      Date.now()
+    );
+  }
+});
+
+// 4. 在浏览器关闭时记录
+window.addEventListener("beforeunload", async () => {
+  if (
+    selectedGroupId.value &&
+    currentUserId.value &&
+    (await checkIsGroupJoined(selectedGroupId.value))
+  ) {
+    // 在浏览器关闭/刷新时记录当前 groupId 和时间戳
+    await set(
+      dbRef(
+        db,
+        `chatroom_users/${selectedGroupId.value}/${currentUserId.value}/lastRead`
+      ),
+      Date.now()
+    );
+  }
+});
+
+// 5. 使用 Firebase onDisconnected 来确保网络中断时记录
+const markLastReadOnDisconnect = async () => {
+  if (
+    selectedGroupId.value &&
+    currentUserId.value &&
+    (await checkIsGroupJoined(selectedGroupId.value))
+  ) {
+    const lastReadRef = dbRef(
+      db,
+      `chatroom_users/${selectedGroupId.value}/${currentUserId.value}/lastRead`
+    );
+    onDisconnect(lastReadRef).set(Date.now());
+    // 记录断开连接时的时间戳
+  }
+};
+
+// 页面加载时，调用 markLastReadOnDisconnect
+onMounted(() => {
+  markLastReadOnDisconnect();
+});
 </script>

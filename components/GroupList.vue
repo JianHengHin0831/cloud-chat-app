@@ -1,94 +1,99 @@
 <template>
   <div
-    class="flex flex-col p-4 bg-white shadow-md rounded-lg my-3 mx-2 h-[calc(100vh-5.5rem)]"
+    class="h-[calc(100vh-5.5rem)] my-3 mx-0 rounded-lg p-4 bg-white dark:bg-gray-800 transition-colors duration-200"
   >
-    <!-- Search Bar -->
+    <!-- Search bar -->
     <div
-      class="flex flex-row items-center px-1 py-1 mb-4 bg-gray-200 rounded-lg"
+      class="flex flex-row items-center px-1 py-1 mb-4 bg-gray-200 rounded-lg border-b dark:border-gray-700"
     >
-      <svg
-        class="w-5 h-5 text-black ml-3"
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M21 21l-4.35-4.35M16.5 10.5a6 6 0 1 0-12 0 6 6 0 0 0 12 0z"
+      <div class="relative w-full">
+        <input
+          type="text"
+          placeholder="Search conversations..."
+          class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          v-model="searchQuery"
         />
-      </svg>
-      <input
-        type="text"
-        placeholder="Search chats..."
-        v-model="searchQuery"
-        class="w-full bg-transparent outline-none border-none focus:border-none focus:ring-0 focus:outline-none shadow-none text-gray-800"
-      />
+        <Icon
+          icon="lucide:search"
+          class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500"
+        />
+      </div>
     </div>
 
-    <!-- Pinned Groups -->
-    <div class="flex-1 overflow-y-auto pb-4">
-      <div v-if="filteredPinnedGroups.length">
-        <h3 class="text-gray-600 font-semibold pb-2 border-b">Pin Groups</h3>
-        <ul>
-          <li
-            v-for="group in filteredPinnedGroups"
-            :key="group.id"
-            class="group-item"
+    <!-- Group list -->
+    <div class="h-[calc(100%-4rem)]">
+      <!-- Pinned Groups -->
+      <div class="flex-1 overflow-y-auto pb-4">
+        <div v-if="filteredPinnedGroups.length">
+          <h3
+            class="text-gray-600 dark:text-gray-400 font-semibold pb-2 border-b dark:border-gray-700"
           >
-            <GroupListItem
-              :group="group"
-              :isSelected="group.id === selectedGroupId"
-              @click="handleGroupClick"
-            />
-          </li>
-        </ul>
-      </div>
+            Pin Groups
+          </h3>
+          <ul>
+            <li
+              v-for="group in filteredPinnedGroups"
+              :key="group.id"
+              class="px-1 py-3 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-all items-center"
+            >
+              <GroupListItem
+                :group="group"
+                :isSelected="group.id === selectedGroupId"
+                @click="handleGroupClick"
+              />
+            </li>
+          </ul>
+        </div>
 
-      <!-- Active Groups -->
-      <div>
-        <h3 class="mt-4 text-gray-600 font-semibold pb-2 border-b">Groups</h3>
-        <ul v-if="filteredActiveGroups.length">
-          <li
-            v-for="group in filteredActiveGroups"
-            :key="group.id"
-            class="group-item"
+        <!-- Active Groups -->
+        <div>
+          <h3
+            class="mt-4 text-gray-600 dark:text-gray-400 font-semibold pb-2 border-b dark:border-gray-700"
           >
-            <GroupListItem
-              :group="group"
-              :isSelected="group.id === selectedGroupId"
-              @click="handleGroupClick"
-            />
-          </li>
-        </ul>
-        <button
-          @click="openJoinModal"
-          class="bg-transparent text-blue-700 font-bold px-1 py-1 hover:text-green-500 rounded-lg flex items-center"
-        >
-          + Join Private Group
-        </button>
-      </div>
+            Groups
+          </h3>
+          <ul v-if="filteredActiveGroups.length">
+            <li
+              v-for="group in filteredActiveGroups"
+              :key="group.id"
+              class="px-1 py-3 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-all items-center"
+            >
+              <GroupListItem
+                :group="group"
+                :isSelected="group.id === selectedGroupId"
+                @click="handleGroupClick"
+              />
+            </li>
+          </ul>
+          <button
+            @click="openJoinModal"
+            class="bg-transparent text-blue-700 dark:text-blue-500 font-bold px-1 py-1 hover:text-green-500 dark:hover:text-green-400 rounded-lg flex items-center"
+          >
+            + Join Private Group
+          </button>
+        </div>
 
-      <!-- Inactive Groups -->
-      <div v-if="filteredInactiveGroups.length">
-        <h3 class="mt-4 text-gray-600 font-semibold pb-2 border-b">
-          Inactive Group
-        </h3>
-        <ul>
-          <li
-            v-for="group in filteredInactiveGroups"
-            :key="group.id"
-            class="group-item opacity-50"
+        <!-- Inactive Groups -->
+        <div v-if="filteredInactiveGroups.length">
+          <h3
+            class="mt-4 text-gray-600 dark:text-gray-400 font-semibold pb-2 border-b dark:border-gray-700"
           >
-            <GroupListItem
-              :group="group"
-              :isSelected="group.id === selectedGroupId"
-              @click="handleGroupClick"
-            />
-          </li>
-        </ul>
+            Inactive Group
+          </h3>
+          <ul>
+            <li
+              v-for="group in filteredInactiveGroups"
+              :key="group.id"
+              class="px-1 py-3 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-all items-center opacity-50"
+            >
+              <GroupListItem
+                :group="group"
+                :isSelected="group.id === selectedGroupId"
+                @click="handleGroupClick"
+              />
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
     <!-- Join Private Group Modal -->
@@ -97,6 +102,7 @@
 </template>
 
 <script setup>
+import { Icon } from "@iconify/vue";
 import GroupListItem from "@/components/GroupListItem.vue";
 import JoinPrivateGroupModal from "@/components/JoinPrivateGroupModal.vue";
 const showJoinModal = ref(false); // 是否显示弹窗
@@ -153,9 +159,3 @@ const filteredInactiveGroups = computed(() =>
   filteredGroups.value.filter((group) => group.isDisband)
 );
 </script>
-
-<style scoped>
-.group-item {
-  @apply px-1 py-3 rounded-lg cursor-pointer hover:bg-gray-100 transition-all items-center;
-}
-</style>
