@@ -25,7 +25,6 @@ export const verifyToken = async (event: H3Event) => {
   }
 };
 
-// 验证用户身份
 export async function verifyAuth(event: any) {
   const token = getHeader(event, "Authorization")?.split("Bearer ")[1];
   if (!token)
@@ -46,8 +45,6 @@ export async function verifyAuth(event: any) {
     });
   }
 }
-
-// 获取角色（Admin SDK版）
 
 export async function getRole(groupId: string, userId: string) {
   const ref = adminDb.ref(`chatroom_users/${groupId}/${userId}/role`);

@@ -16,29 +16,25 @@ import { db, auth } from "@/firebase/firebase";
 import { getCache, setCache, deleteCache } from "@/utils/client-cache";
 import CryptoJS from "crypto-js";
 
-// 基础加密密钥 - 将在函数内部获取
 let BASE_ENCRYPTION_KEY = null;
 
-// 密钥缓存 - 存储最近的几个密钥版本
 const KEY_CACHE = new Map();
-const MAX_KEY_VERSIONS = 30; // 保存最近30天的密钥
+const MAX_KEY_VERSIONS = 30;
 
-// 存储用户的棘轮状态
 const userRatchetStates = new Map();
 
-// 棘轮状态结构
 class RatchetState {
   constructor(rootKey) {
     this.rootKey = rootKey;
     this.sendingChainKey = null;
     this.receivingChainKey = null;
-    this.messageKeyCache = new Map(); // 缓存消息密钥，用于处理乱序消息
+    this.messageKeyCache = new Map();
     this.messageCounter = 0;
-    this.previousMessageKeys = []; // 存储之前的消息密钥，用于处理乱序消息
-    this.maxStoredMessageKeys = 100; // 最多存储100个之前的消息密钥
-    this.lastSyncTime = Date.now(); // 添加同步时间戳
+    this.previousMessageKeys = [];
+    this.maxStoredMessageKeys = 100; // store up to 100 previous message keys
+    this.lastSyncTime = Date.now(); // add sync timestamp
 
-    // 从缓存恢复状态
+    // restore state from cache
     if (typeof window !== "undefined") {
       import("@/utils/client-cache").then(({ getCache }) => {
         const cacheKey = `ratchet_state_${rootKey}`;
@@ -51,7 +47,7 @@ class RatchetState {
     }
   }
 
-  // 序列化状态用于缓存
+  // serialize state for caching
   serialize() {
     return {
       rootKey: this.rootKey,
@@ -62,7 +58,7 @@ class RatchetState {
     };
   }
 
-  // 从缓存反序列化状态
+  // deserialize state from cache
   deserialize(state) {
     if (!state) return;
     this.sendingChainKey = state.sendingChainKey;
@@ -71,24 +67,24 @@ class RatchetState {
     this.lastSyncTime = state.lastSyncTime;
   }
 
-  // 添加一个方法来检查状态是否需要同步
+  // check if state needs sync
   needsSync(threshold = 300000) {
-    // 默认5分钟，减少不必要的同步
+    // default 5 minutes, reduce unnecessary syncs
     return Date.now() - this.lastSyncTime > threshold;
   }
 
-  // 添加一个方法来标记已同步
+  // mark state as synced
   markSynced() {
     this.lastSyncTime = Date.now();
   }
 
-  // 添加一个方法来重置状态
+  // reset state
   reset() {
     this.messageKeyCache.clear();
     this.previousMessageKeys = [];
     this.messageCounter = 0;
     this.markSynced();
-    // 触发客户端缓存更新
+    // trigger client cache update
     if (typeof window !== "undefined") {
       import("@/utils/client-cache").then(({ setCache }) => {
         const cacheKey = `ratchet_state_${this.rootKey}`;
@@ -98,27 +94,23 @@ class RatchetState {
   }
 }
 
-// 密钥派生函数 - 使用 PBKDF2 增强安全性
 const deriveKey = (salt, userId, chatroomId, iterations = 10000) => {
   if (!BASE_ENCRYPTION_KEY) {
-    throw new Error("加密密钥未初始化");
+    throw new Error("encryption key not initialized");
   }
 
-  // 组合密钥材料
   const keyMaterial = `${BASE_ENCRYPTION_KEY}-${userId}-${chatroomId}`;
 
-  // 使用 PBKDF2 派生密钥 (更安全的密钥派生)
   return CryptoJS.PBKDF2(keyMaterial, salt, {
-    keySize: 256 / 32, // 256 位密钥
-    iterations: iterations, // 迭代次数
-    hasher: CryptoJS.algo.SHA256, // 使用 SHA-256
+    keySize: 256 / 32,
+    iterations: iterations,
+    hasher: CryptoJS.algo.SHA256,
   }).toString();
 };
 
-// 密钥版本计算 - 基于月份而不是天数
 const getCurrentKeyVersion = () => {
   const now = new Date();
-  // 格式: YYYY-MM (例如 2023-05)
+  // format: YYYY-MM (e.g. 2023-05)
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 };
 
@@ -137,31 +129,27 @@ const getUserPrivateKey = async (userId) => {
   return null;
 };
 
-// 初始化用户与聊天室的棘轮状态
+// initialize ratchet state for user and chatroom
 const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
   const stateKey = recipientId
     ? `${userId}:${chatroomId}:${recipientId}`
     : `${userId}:${chatroomId}`;
 
-  // 如果已经初始化，直接返回
   if (userRatchetStates.has(stateKey)) {
     return userRatchetStates.get(stateKey);
   }
 
   try {
-    // 获取用户私钥
-
     const userPrivateKey = await getUserPrivateKey(userId);
 
     if (!userPrivateKey) {
-      throw new Error("无法获取用户私钥");
+      throw new Error("unable to get user private key");
     }
 
-    // 生成根密钥
     let rootKey;
 
     if (recipientId) {
-      // 私聊 - 使用两个用户ID和聊天室ID生成根密钥
+      // private chat - use both user IDs and chatroom ID to generate root key
       const salt = CryptoJS.enc.Utf8.parse(
         `${userId}:${recipientId}:${chatroomId}`
       );
@@ -170,7 +158,6 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
         iterations: 10000,
       }).toString();
 
-      // 检查是否已有存储的棘轮状态
       const ratchetRef = dbRef(
         db,
         `users/${userId}/ratchets/${chatroomId}/${recipientId}`
@@ -178,7 +165,6 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
       const snapshot = await get(ratchetRef);
 
       if (snapshot.exists()) {
-        // 恢复存储的棘轮状态
         const storedState = snapshot.val();
         const ratchetState = new RatchetState(rootKey);
         ratchetState.sendingChainKey = storedState.sendingChainKey;
@@ -189,12 +175,10 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
         return ratchetState;
       }
     } else {
-      // 群聊 - 使用群组密钥作为根密钥
       const { useRuntimeConfig } = await import("#app");
       const config = useRuntimeConfig();
       const systemKey = config.public.baseEncryptionKey;
 
-      // 检查群组密钥是否存在
       const groupKeyRef = dbRef(
         db,
         `chatrooms/${chatroomId}/encryption/group_key`
@@ -202,9 +186,7 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
       const snapshot = await get(groupKeyRef);
 
       if (snapshot.exists()) {
-        // 如果存在，使用存储的群组密钥
         const encryptedGroupKey = snapshot.val();
-        // 使用系统密钥解密群组密钥
         rootKey = CryptoJS.AES.decrypt(encryptedGroupKey, systemKey).toString(
           CryptoJS.enc.Utf8
         );
@@ -216,25 +198,25 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
         const userGroupKeySnapshot = await get(userGroupKeyRef);
 
         if (!userGroupKeySnapshot.exists()) {
-          // 如果用户没有群组加密密钥，使用群组密钥和用户私钥生成并存储
+          // if user has no group encryption key, generate and store using group key and user private key
           const userPrivateKey = await getUserPrivateKey(userId);
           const userGroupEncryptKey = CryptoJS.AES.encrypt(
             rootKey,
             userPrivateKey
           ).toString();
 
-          // 存储用户的群组加密密钥
+          // store user's group encryption key
           await set(userGroupKeyRef, userGroupEncryptKey);
         }
       } else {
-        // 如果不存在，创建新的群组密钥
+        // if not exists, create new group key
         rootKey = CryptoJS.lib.WordArray.random(32).toString();
-        // 使用系统密钥加密群组密钥
+        // encrypt group key using system key
         const encryptedGroupKey = CryptoJS.AES.encrypt(
           rootKey,
           systemKey
         ).toString();
-        // 保存加密的群组密钥
+        // save encrypted group key
         await set(groupKeyRef, encryptedGroupKey);
 
         const userGroupKeyRef = dbRef(
@@ -244,19 +226,19 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
         const userGroupKeySnapshot = await get(userGroupKeyRef);
 
         if (!userGroupKeySnapshot.exists()) {
-          // 如果用户没有群组加密密钥，使用群组密钥和用户私钥生成并存储
+          // if user has no group encryption key, generate and store using group key and user private key
           const userPrivateKey = await getUserPrivateKey(userId);
           const userGroupEncryptKey = CryptoJS.AES.encrypt(
             rootKey,
             userPrivateKey
           ).toString();
 
-          // 存储用户的群组加密密钥
+          // store user's group encryption key
           await set(userGroupKeyRef, userGroupEncryptKey);
         }
       }
 
-      // 检查是否已有存储的棘轮状态
+      // check if stored ratchet state exists
       const ratchetRef = dbRef(
         db,
         `users/${userId}/ratchets/${chatroomId}/group`
@@ -264,7 +246,7 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
       const ratchetSnapshot = await get(ratchetRef);
 
       if (ratchetSnapshot.exists()) {
-        // 恢复存储的棘轮状态
+        // restore stored ratchet state
         const storedState = ratchetSnapshot.val();
         const ratchetState = new RatchetState(rootKey);
         ratchetState.sendingChainKey = storedState.sendingChainKey;
@@ -276,10 +258,10 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
       }
     }
 
-    // 如果没有现有状态，创建新的棘轮状态
+    // if no existing state, create new ratchet state
     const ratchetState = new RatchetState(rootKey);
 
-    // 初始化发送链密钥
+    // initialize sending chain key
     const sendingSalt = CryptoJS.enc.Utf8.parse(
       `sending:${userId}:${chatroomId}`
     );
@@ -288,9 +270,7 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
       sendingSalt
     ).toString();
 
-    // 接收链密钥将在第一次接收消息时初始化
-
-    // 将棘轮状态保存到数据库
+    // save ratchet state to database
     if (recipientId) {
       await set(
         dbRef(db, `users/${userId}/ratchets/${chatroomId}/${recipientId}`),
@@ -308,17 +288,17 @@ const initializeRatchet = async (userId, chatroomId, recipientId = null) => {
       });
     }
 
-    // 缓存棘轮状态
+    // cache ratchet state
     userRatchetStates.set(stateKey, ratchetState);
 
     return ratchetState;
   } catch (error) {
-    console.error("初始化棘轮状态失败:", error);
+    console.error("initialize ratchet state failed:", error);
     return null;
   }
 };
 
-// 修改 updateSendingChain 函数，确保密钥派生一致
+// update sending chain with new message key
 const updateSendingChain = async (
   ratchetState,
   userId,
@@ -326,18 +306,18 @@ const updateSendingChain = async (
   recipientId
 ) => {
   try {
-    // 增加消息计数器
+    // increment message counter
     const messageCounter = await incrementMessageCounter(userId);
 
-    // 使用一个更简单、更一致的方法派生消息密钥
+    // use a simpler, more consistent method to derive message key
     const messageKey = CryptoJS.SHA256(
       `${ratchetState.rootKey}:${messageCounter}:${userId}:${chatroomId}`
     ).toString();
 
-    // 更新棘轮状态
+    // update ratchet state
     ratchetState.messageCounter = messageCounter;
 
-    // 更新数据库中的棘轮状态
+    // update ratchet state in database
     try {
       if (recipientId) {
         await update(
@@ -357,20 +337,20 @@ const updateSendingChain = async (
         );
       }
     } catch (error) {
-      console.error("更新发送链失败:", error);
+      console.error("update sending chain failed:", error);
     }
 
     return messageKey;
   } catch (error) {
-    console.error("更新发送链出错:", error);
+    console.error("update sending chain error:", error);
     return null;
   }
 };
 
-// 宽松模式 - 在 HMAC 验证失败时仍然尝试解密
+// relaxed mode - attempt decryption even if HMAC verification fails
 const LENIENT_MODE = true;
 
-// 修改 updateReceivingChain 函数，使用相同的密钥派生方法
+// update receiving chain with new message key
 const updateReceivingChain = async (
   ratchetState,
   userId,
@@ -379,17 +359,17 @@ const updateReceivingChain = async (
   senderId
 ) => {
   try {
-    // 使用与发送方相同的方法派生消息密钥
+    // use the same method as sender to derive message key
     const messageKey = CryptoJS.SHA256(
       `${ratchetState.rootKey}:${messageNumber}:${senderId}:${chatroomId}`
     ).toString();
 
-    // 更新棘轮状态
+    // update ratchet state
     ratchetState.messageCounter = messageNumber + 1;
 
-    // 更新数据库中的棘轮状态
+    // update ratchet state in database
     try {
-      const recipientId = senderId; // 在接收时，发送者就是我们的接收者
+      const recipientId = senderId; // in reception, sender is our receiver
       const updatePath = recipientId
         ? `users/${userId}/ratchets/${chatroomId}/${recipientId}`
         : `users/${userId}/ratchets/${chatroomId}/group`;
@@ -399,17 +379,17 @@ const updateReceivingChain = async (
         lastUpdated: serverTimestamp(),
       });
     } catch (error) {
-      console.error("更新接收链失败:", error);
+      console.error("update receiving chain failed:", error);
     }
 
     return messageKey;
   } catch (error) {
-    console.error("更新接收链出错:", error);
+    console.error("update receiving chain error:", error);
     return null;
   }
 };
 
-// 获取用户的群组加密密钥
+// get user's group encryption key
 const getUserGroupEncryptKey = async (userId, chatroomId) => {
   try {
     const userGroupKeyRef = dbRef(
@@ -418,12 +398,12 @@ const getUserGroupEncryptKey = async (userId, chatroomId) => {
     );
     return await get(userGroupKeyRef);
   } catch (error) {
-    console.error("获取用户群组加密密钥失败:", error);
+    console.error("get user group encryption key failed:", error);
     throw error;
   }
 };
 
-// 修改加密消息函数，结合群组密钥和双重棘轮
+// encrypt message using ratchet protocol
 const encryptWithRatchet = async (
   message,
   senderId,
@@ -433,7 +413,7 @@ const encryptWithRatchet = async (
   if (!message) return "";
 
   try {
-    // 初始化或获取棘轮状态
+    // initialize or get ratchet state
     const ratchetState = await initializeRatchet(
       senderId,
       chatroomId,
@@ -441,10 +421,10 @@ const encryptWithRatchet = async (
     );
 
     if (!ratchetState) {
-      throw new Error("无法初始化棘轮状态");
+      throw new Error("unable to initialize ratchet state");
     }
 
-    // 更新发送链并获取消息密钥
+    // update sending chain and get message key
     const messageKey = await updateSendingChain(
       ratchetState,
       senderId,
@@ -453,59 +433,59 @@ const encryptWithRatchet = async (
     );
 
     if (!messageKey) {
-      throw new Error("无法生成消息密钥");
+      throw new Error("unable to generate message key");
     }
 
-    // 获取发送者的群组加密密钥
+    // get sending group encryption key
     const userGroupEncryptKey = await getUserGroupEncryptKey(
       senderId,
       chatroomId
     );
 
-    // 获取发送者的私钥
+    // get sending user private key
     const userPrivateKey = await getUserPrivateKey(senderId);
     if (!userPrivateKey) {
-      throw new Error("无法获取用户私钥");
+      throw new Error("unable to get user private key");
     }
 
-    // 使用私钥解密群组加密密钥
+    // decrypt group encryption key using private key
     const groupKey = CryptoJS.AES.decrypt(
       userGroupEncryptKey,
       userPrivateKey
     ).toString(CryptoJS.enc.Utf8);
 
-    // 生成随机初始化向量(IV)
+    // generate random initialization vector (IV)
     const iv = CryptoJS.lib.WordArray.random(16);
 
-    // 当前时间戳
+    // current timestamp
     const timestamp = Date.now();
 
-    // 消息对象
+    // message object
     const messageObj = {
       content: message,
       timestamp: timestamp,
       sender: senderId,
     };
 
-    // 序列化消息对象
+    // serialize message object
     const messageString = JSON.stringify(messageObj);
 
-    // 使用群组密钥和消息密钥的组合进行加密
+    // use group key and message key combination for encryption
     const combinedKey = CryptoJS.SHA256(`${groupKey}:${messageKey}`).toString();
 
-    // 使用组合密钥加密消息
+    // use combined key to encrypt message
     const encrypted = CryptoJS.AES.encrypt(messageString, combinedKey, {
       iv: iv,
       mode: CryptoJS.mode.CBC,
       padding: CryptoJS.pad.Pkcs7,
     });
 
-    // 添加 HMAC 用于消息认证 - 使用原始消息内容生成 HMAC
+    // add HMAC for message authentication - use original message content to generate HMAC
     const hmac = CryptoJS.HmacSHA256(messageString, combinedKey).toString(
       CryptoJS.enc.Base64
     );
 
-    // 加密包
+    // encrypted package
     const encryptedPackage = {
       cipher: encrypted.toString(),
       iv: iv.toString(CryptoJS.enc.Base64),
@@ -513,7 +493,7 @@ const encryptWithRatchet = async (
       version: 3,
       type: recipientId ? "private" : "group",
       messageNumber: ratchetState.messageCounter,
-      // 使用接收者的公钥加密消息密钥
+      // use receiver's public key to encrypt message key
       encryptedKey: CryptoJS.AES.encrypt(
         messageKey,
         ratchetState.rootKey
@@ -522,14 +502,12 @@ const encryptWithRatchet = async (
 
     return JSON.stringify(encryptedPackage);
   } catch (error) {
-    console.error("加密消息失败:", error);
-    return `[加密失败] ${message}`;
+    console.error("encrypt message failed:", error);
+    return `[encrypt failed] ${message}`;
   }
 };
 
-// 最大递归深度
-const MAX_DECRYPT_RECURSION = 2;
-// 修改解密消息函数，结合群组密钥和双重棘轮
+// decrypt message using ratchet protocol
 const decryptWithRatchet = async (
   encryptedMessage,
   senderId,
@@ -540,25 +518,25 @@ const decryptWithRatchet = async (
   if (!encryptedMessage) return "";
 
   if (!currentUserId) {
-    return "[加密消息]";
+    return "[encrypted message]";
   }
 
   try {
-    // 解析加密包
+    // parse encrypted package
     const encryptedPackage = JSON.parse(encryptedMessage);
 
-    // 检查是否是棘轮协议加密的消息
+    // check if it's encrypted message using ratchet protocol
     if (encryptedPackage.version !== 3) {
-      return "[非棘轮加密消息]";
+      return "[non-ratchet encrypted message]";
     }
 
-    // 提取加密组件
+    // extract encrypted components
     const { cipher, iv, mac, type, messageNumber } = encryptedPackage;
 
-    // 确定接收者ID
+    // determine receiver ID
     const recipientId = type === "private" ? senderId : null;
 
-    // 初始化或获取棘轮状态
+    // initialize or get ratchet state
     const ratchetState = await initializeRatchet(
       currentUserId,
       chatroomId,
@@ -566,11 +544,11 @@ const decryptWithRatchet = async (
     );
 
     if (!ratchetState) {
-      console.error("棘轮状态初始化失败");
-      throw new Error("无法初始化棘轮状态");
+      console.error("ratchet state initialization failed");
+      throw new Error("unable to initialize ratchet state");
     }
 
-    // 获取消息密钥
+    // get message key
     let messageKey = await updateReceivingChain(
       ratchetState,
       currentUserId,
@@ -590,59 +568,59 @@ const decryptWithRatchet = async (
           messageKey = decryptedKey;
         }
       } catch (e) {
-        console.error("解密消息密钥失败", e);
+        console.error("decrypt message key failed", e);
       }
     }
 
-    // 获取当前用户的群组加密密钥
+    // get current user group encryption key
     const userGroupEncryptKey = await getUserGroupEncryptKey(
       currentUserId,
       chatroomId
     );
 
-    // 获取当前用户的私钥
+    // get current user private key
     const userPrivateKey = await getUserPrivateKey(currentUserId);
     if (!userPrivateKey) {
-      throw new Error("无法获取用户私钥");
+      throw new Error("unable to get user private key");
     }
 
-    // 使用私钥解密群组加密密钥
+    // decrypt group encryption key using private key
     const groupKey = CryptoJS.AES.decrypt(
       userGroupEncryptKey,
       userPrivateKey
     ).toString(CryptoJS.enc.Utf8);
 
-    // 使用群组密钥和消息密钥的组合进行解密
+    // use group key and message key combination for decryption
     const combinedKey = CryptoJS.SHA256(`${groupKey}:${messageKey}`).toString();
 
-    // 解密消息
+    // decrypt message
     const decrypted = CryptoJS.AES.decrypt(cipher, combinedKey, {
       iv: CryptoJS.enc.Base64.parse(iv),
       mode: CryptoJS.mode.CBC,
       padding: CryptoJS.pad.Pkcs7,
     });
 
-    // 解析解密后的消息
+    // parse decrypted message
     const decryptedMessage = JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
 
-    // 验证 HMAC
+    // verify HMAC
     const computedHmac = CryptoJS.HmacSHA256(
       JSON.stringify(decryptedMessage),
       combinedKey
     ).toString(CryptoJS.enc.Base64);
 
     if (computedHmac !== mac && !LENIENT_MODE) {
-      throw new Error("消息认证失败");
+      throw new Error("message authentication failed");
     }
 
     return decryptedMessage.content;
   } catch (error) {
-    console.error("解密消息失败:", error);
-    return "[解密失败]";
+    console.error("decrypt message failed:", error);
+    return "[decrypt failed]";
   }
 };
 
-// 消息加密函数 - 使用双重棘轮协议
+// encrypt message with fallback to basic encryption
 const encryptMessage = async (
   message,
   senderId,
@@ -652,96 +630,97 @@ const encryptMessage = async (
   if (!message) return "";
 
   try {
-    // 尝试使用棘轮协议加密
+    // try to use ratchet protocol encryption
     return await encryptWithRatchet(message, senderId, chatroomId, recipientId);
   } catch (error) {
-    console.error("棘轮加密失败，回退到基本加密:", error);
+    console.error(
+      "ratchet encryption failed, fallback to basic encryption:",
+      error
+    );
 
-    // 回退到基本加密方法
+    // fallback to basic encryption method
     try {
-      // 获取当前版本号（基于月份）
+      // get current version number (based on month)
       const currentVersion = getCurrentKeyVersion();
 
-      // 确保我们有当前版本的密钥
+      // ensure we have current version key
       //BASE_ENCRYPTION_KEY = await getEncryptionKeyForVersion(currentVersion);
 
       if (!BASE_ENCRYPTION_KEY) {
-        throw new Error("无法获取加密密钥");
+        throw new Error("unable to get encryption key");
       }
 
-      // 生成随机初始化向量(IV)
+      // generate random initialization vector (IV)
       const iv = CryptoJS.lib.WordArray.random(16);
 
-      // 当前时间戳
+      // current timestamp
       const timestamp = Date.now();
 
-      // 消息对象
+      // message object
       const messageObj = {
         content: message,
         timestamp: timestamp,
         sender: senderId,
       };
 
-      // 序列化消息对象
+      // serialize message object
       const messageString = JSON.stringify(messageObj);
 
-      // 获取加密密钥
+      // get encryption key
       let encryptionKey;
       if (recipientId) {
-        // 私聊消息 - 使用接收者特定密钥
+        // private chat message - use receiver specific key
         const salt = CryptoJS.enc.Utf8.parse(recipientId);
         encryptionKey = deriveKey(salt, senderId, chatroomId);
       } else {
-        // 群聊消息 - 使用群组密钥
+        // group chat message - use group key
         const salt = CryptoJS.enc.Utf8.parse(`group:${chatroomId}`);
         encryptionKey = deriveKey(salt, senderId, chatroomId);
       }
 
-      // 使用 AES-CBC 模式加密
+      // use AES-CBC mode encryption
       const encrypted = CryptoJS.AES.encrypt(messageString, encryptionKey, {
         iv: iv,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7,
       });
 
-      // 添加 HMAC 用于消息认证
+      // add HMAC for message authentication
       const hmac = CryptoJS.HmacSHA256(encrypted.toString(), encryptionKey);
 
-      // 在加密包中包含版本信息
+      // include version information in encrypted package
       const encryptedPackage = {
         cipher: encrypted.toString(),
         iv: iv.toString(CryptoJS.enc.Base64),
         mac: hmac.toString(CryptoJS.enc.Base64),
-        version: 1, // 基本加密版本
-        keyVersion: currentVersion, // 密钥版本 (月份格式)
+        version: 1, // basic encryption version
+        keyVersion: currentVersion, // key version (month format)
         type: recipientId ? "private" : "group",
       };
 
       return JSON.stringify(encryptedPackage);
     } catch (fallbackError) {
-      console.error("基本加密也失败:", fallbackError);
-      return `[加密失败] ${message}`;
+      console.error("basic encryption also failed:", fallbackError);
+      return `[encrypt failed] ${message}`;
     }
   }
 };
 
-// 同步获取聊天室成员（用于解密）
+// get chatroom members synchronously
 const getChatroomMembersSync = (chatroomId) => {
-  // 这里使用缓存或同步方法获取聊天室成员
-  // 简化实现，实际应用中可能需要更复杂的逻辑
   const cacheKey = `chatroom:${chatroomId}:members`;
   const cached = getCache(cacheKey);
 
-  // 确保返回一个数组
+  // ensure return an array
   if (cached && Array.isArray(cached)) {
     return cached;
   }
 
-  // 如果缓存不存在或不是数组，返回空数组
+  // if cache does not exist or not an array, return empty array
   return [];
 };
 
-// 处理消息和活动日志
+// process messages and activity logs
 const processMessages = async (
   messagesSnapshot,
   activitySnapshot,
@@ -756,7 +735,7 @@ const processMessages = async (
       ? Math.max(...cachedMessages.map((msg) => msg.createdAt))
       : 0;
 
-    // 处理消息
+    // process messages
     if (messagesSnapshot && messagesSnapshot.exists()) {
       const decryptPromises = [];
 
@@ -765,7 +744,7 @@ const processMessages = async (
           const message = childSnapshot.val();
           const messageTimestamp = message.createdAt || 0;
 
-          // 创建消息对象
+          // create message object
 
           const messageObj = {
             id: childSnapshot.key,
@@ -784,7 +763,7 @@ const processMessages = async (
             messageObj.messageType = "deleted message";
           }
 
-          // 检查是否在缓存中已存在
+          // check if cached message exists
           const cachedMessage = cachedMessages?.find(
             (msg) => msg.id === messageObj.id
           );
@@ -805,7 +784,7 @@ const processMessages = async (
             return;
           }
 
-          // 处理反应数据
+          // process reaction data
           const reactions = message.reactions || {};
           const reactionCounts = {};
           Object.entries(reactions).forEach(([emojiId, users]) => {
@@ -816,15 +795,15 @@ const processMessages = async (
             Object.keys(users).includes(currentUserId)
           );
 
-          // 只解密文本消息
+          // only decrypt text messages
           if (
             (message.messageType === "text" || !message.messageType) &&
             message.messageContent
           ) {
-            // 创建解密Promise
+            // create decrypt promise
             const decryptPromise = (async () => {
               try {
-                // 尝试解密消息
+                // try to decrypt message
                 const decrypted = await decryptWithRatchet(
                   message.messageContent,
                   message.senderId,
@@ -833,42 +812,42 @@ const processMessages = async (
                 );
                 messageObj.messageContent = decrypted;
               } catch (decryptError) {
-                console.error("解密消息失败:", decryptError);
-                messageObj.messageContent = "[加密消息]";
+                console.error("decrypt message failed:", decryptError);
+                messageObj.messageContent = "[encrypted message]";
               }
               return messageObj;
             })();
 
             decryptPromises.push(decryptPromise);
           } else {
-            // 非文本消息直接添加
+            // non-text messages directly add
             combinedMessages.push(messageObj);
           }
         } catch (messageError) {
-          console.error("处理单条消息失败:", messageError);
-          // 继续处理下一条消息
+          console.error("process single message failed:", messageError);
+          // continue processing next message
         }
       });
 
-      // 等待所有解密操作完成
+      // wait for all decrypt operations to complete
       try {
         const decryptedMessages = await Promise.all(decryptPromises);
         combinedMessages.push(...decryptedMessages);
       } catch (decryptError) {
-        console.error("批量解密消息失败:", decryptError);
-        // 尝试逐个解密
+        console.error("batch decrypt messages failed:", decryptError);
+        // try decrypting one by one
         for (const promise of decryptPromises) {
           try {
             const result = await promise;
             combinedMessages.push(result);
           } catch (e) {
-            console.error("单条消息解密失败:", e);
+            console.error("single message decrypt failed:", e);
           }
         }
       }
     }
 
-    // 处理活动日志
+    // process activity logs
     if (activitySnapshot && activitySnapshot.exists()) {
       activitySnapshot.forEach((logSnapshot) => {
         try {
@@ -882,54 +861,53 @@ const processMessages = async (
             isActivityLog: true,
           });
         } catch (logError) {
-          console.error("处理活动日志失败:", logError);
-          // 继续处理下一条日志
+          console.error("process activity log failed:", logError);
         }
       });
     }
 
-    // 按时间排序
+    // sort by time
     combinedMessages.sort((a, b) => a.createdAt - b.createdAt);
 
     setCache(cacheKey, combinedMessages);
 
     return combinedMessages;
   } catch (error) {
-    console.error("处理消息总体失败:", error);
-    return []; // 返回空数组避免UI错误
+    console.error("process messages overall failed:", error);
+    return []; // return empty array to avoid UI error
   }
 };
 
-// 获取当前登录用户
+// get current logged in user
 const getCurrentUser = async () => {
   if (process.client) {
     try {
-      // 如果已经有用户登录，直接返回
+      // if already logged in user, return directly
       if (auth.currentUser) {
         return auth.currentUser.uid;
       }
 
-      // 等待 auth 状态就绪
+      // wait for auth state ready
       return new Promise((resolve) => {
         const unsubscribe = auth.onAuthStateChanged((user) => {
-          unsubscribe(); // 取消监听
+          unsubscribe(); // cancel listener
           resolve(user ? user.uid : null);
         });
       });
     } catch (error) {
-      console.error("获取当前用户失败:", error);
+      console.error("get current user failed:", error);
       return null;
     }
   }
   return null;
 };
 
-// 添加反应到消息
+// add reaction to message
 export const addReaction = async (chatroomId, messageId, emojiId) => {
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      throw new Error("用户未登录");
+      throw new Error("user not logged in");
     }
 
     const messageRef = dbRef(
@@ -941,21 +919,20 @@ export const addReaction = async (chatroomId, messageId, emojiId) => {
     );
 
     if (!messageSnapshot.exists()) {
-      throw new Error("消息不存在");
+      throw new Error("message does not exist");
     }
 
     const message = messageSnapshot.val();
     const reactions = message.reactions || {};
 
-    // 如果用户已经对这个表情反应过，则移除反应
+    // if user has already reacted to this emoji, remove reaction
     if (reactions[emojiId] && reactions[emojiId][currentUser]) {
       delete reactions[emojiId][currentUser];
-      // 如果表情下没有用户了，删除整个表情对象
+      // if emoji has no users, delete entire emoji object
       if (Object.keys(reactions[emojiId]).length === 0) {
         delete reactions[emojiId];
       }
     } else {
-      // 添加新的反应
       if (!reactions[emojiId]) {
         reactions[emojiId] = {};
       }
@@ -963,7 +940,6 @@ export const addReaction = async (chatroomId, messageId, emojiId) => {
       reactions[emojiId][currentUser] = true;
     }
 
-    // 更新消息
     await update(messageRef, {
       reactions,
       lastUpdated: new Date().toISOString(),
@@ -971,12 +947,12 @@ export const addReaction = async (chatroomId, messageId, emojiId) => {
 
     return true;
   } catch (error) {
-    console.error("添加反应失败:", error);
+    console.error("add reaction failed:", error);
     throw error;
   }
 };
 
-// 实时监听封装函数
+// setup real-time message listener
 export const setupMessagesListener = async (
   groupId,
   callback,
@@ -984,16 +960,16 @@ export const setupMessagesListener = async (
   lastTimestamp = null
 ) => {
   try {
-    // 获取当前用户
+    // get current user
     const currentUserId = await getCurrentUser();
     if (!currentUserId) {
-      throw new Error("用户未登录");
+      throw new Error("user not logged in");
     }
 
     try {
       await initializeRatchet(currentUserId, groupId);
 
-      // 获取群组成员，为每个成员初始化私聊棘轮状态
+      // get group members, initialize private chat ratchet state for each member
       const members = await getChatroomMembers(groupId);
       for (const member of members) {
         if (member.id !== currentUserId) {
@@ -1001,15 +977,15 @@ export const setupMessagesListener = async (
             await initializeRatchet(currentUserId, groupId, member.id);
           } catch (memberError) {
             console.warn(
-              `初始化与成员 ${member.id} 的棘轮状态失败:`,
+              `initialize with member ${member.id} failed:`,
               memberError
             );
           }
         }
       }
     } catch (ratchetError) {
-      console.warn("预初始化棘轮状态失败:", ratchetError);
-      // 继续执行，不阻止消息加载
+      console.warn("pre-initialize ratchet state failed:", ratchetError);
+      // continue execution, do not prevent message loading
     }
     let joinedAt = 0;
     const userJoinedRef = dbRef(
@@ -1022,7 +998,7 @@ export const setupMessagesListener = async (
       joinedAt = joinedAtSnapshot.val();
     }
 
-    // 构建消息查询
+    // build message query
     let messagesQuery;
     if (loadMore && lastTimestamp) {
       const startTimestamp = Math.max(lastTimestamp, joinedAt - 1);
@@ -1041,7 +1017,7 @@ export const setupMessagesListener = async (
       );
     }
 
-    // 构建活动日志查询
+    // build activity log query
     const activityLogsQuery = query(
       dbRef(db, `chatrooms/${groupId}/activity_logs`),
       orderByChild("timestamp"),
@@ -1049,15 +1025,15 @@ export const setupMessagesListener = async (
       limitToLast(50)
     );
 
-    // 设置消息监听
+    // set message listener
     const unsubscribeMessages = onValue(
       messagesQuery,
       async (messagesSnapshot) => {
         try {
-          // 获取活动日志快照
+          // get activity log snapshot
           const activitySnapshot = await get(activityLogsQuery);
 
-          // 处理消息和活动日志
+          // process messages and activity logs
           const processedMessages = await processMessages(
             messagesSnapshot,
             activitySnapshot,
@@ -1065,16 +1041,16 @@ export const setupMessagesListener = async (
             currentUserId
           );
 
-          // 回调处理后的消息
+          // callback processed messages
           callback(processedMessages);
         } catch (error) {
-          console.error("处理消息时出错:", error);
-          callback([]); // 返回空数组避免UI错误
+          console.error("process messages error:", error);
+          callback([]);
         }
       },
       (error) => {
-        console.error("消息监听错误:", error);
-        callback([]); // 返回空数组避免UI错误
+        console.error("message listener error:", error);
+        callback([]);
       }
     );
 
@@ -1082,12 +1058,12 @@ export const setupMessagesListener = async (
       activityLogsQuery,
       async (activitySnapshot) => {
         try {
-          // 获取活动日志快照
+          // get activity log snapshot
           const activitySnapshot = await get(activityLogsQuery);
 
           const messagesSnapshot = await get(messagesQuery);
 
-          // 处理消息和活动日志
+          // process messages and activity logs
           const processedMessages = await processMessages(
             messagesSnapshot,
             activitySnapshot,
@@ -1095,37 +1071,36 @@ export const setupMessagesListener = async (
             currentUserId
           );
 
-          // 回调处理后的消息
+          // callback processed messages
           callback(processedMessages);
         } catch (error) {
-          console.error("处理消息时出错:", error);
-          callback([]); // 返回空数组避免UI错误
+          console.error("process messages error:", error);
+          callback([]);
         }
       },
       (error) => {
-        console.error("消息监听错误:", error);
-        callback([]); // 返回空数组避免UI错误
+        console.error("message listener error:", error);
+        callback([]);
       }
     );
 
-    // 返回取消订阅函数
+    // return unsubscribe function
     return [unsubscribeMessages, unsubscribeActivityLog];
   } catch (error) {
-    console.error("设置消息监听失败:", error);
-    // 返回一个空函数作为取消订阅函数，避免调用时出错
+    console.error("setup messages listener failed:", error);
+    // return an empty function as unsubscribe function to avoid calling error
     return () => {};
   }
 };
 
-// preload 15 groups messages
-// preload 15 groups messages (fetch without listening)
+// preload messages for 15 groups
 export const preload15GroupsMessages = async (
   groupIds // Array of 15 group IDs
 ) => {
   try {
     const currentUserId = await getCurrentUser();
     if (!currentUserId) {
-      throw new Error("用户未登录");
+      throw new Error("user not logged in");
     }
 
     // Process all groups in parallel
@@ -1142,7 +1117,7 @@ export const preload15GroupsMessages = async (
               await initializeRatchet(currentUserId, groupId, member.id);
             } catch (memberError) {
               console.warn(
-                `初始化与成员 ${member.id} 的棘轮状态失败:`,
+                `initialize with member ${member.id} failed:`,
                 memberError
               );
             }
@@ -1189,7 +1164,7 @@ export const preload15GroupsMessages = async (
         // Return results for this group
         return { groupId, messages: processedMessages };
       } catch (error) {
-        console.error(`预加载群组 ${groupId} 消息失败:`, error);
+        console.error(`preload group ${groupId} messages failed:`, error);
         return { groupId, messages: [] };
       }
     });
@@ -1202,31 +1177,31 @@ export const preload15GroupsMessages = async (
     //   callback(groupId, messages);
     // });
   } catch (error) {
-    console.error("预加载15个群组消息失败:", error);
+    console.error("preload 15 groups messages failed:", error);
     // Trigger empty callbacks for all groups on failure
     groupIds.forEach((groupId) => callback(groupId, []));
   }
 };
 
-// 发送消息（带缓存清除和加密）
+// send message with encryption
 export const sendMessage = async (chatroomId, messageData) => {
   try {
-    // 创建消息数据的副本，以便我们可以修改它
+    // create a copy of message data so we can modify it
     const processedMessageData = { ...messageData };
 
-    // 获取当前用户
+    // get current user
     const currentUserId = await getCurrentUser();
 
-    // 验证发送者身份
+    // verify sender identity
     if (!currentUserId) {
-      throw new Error("用户未登录");
+      throw new Error("user not logged in");
     }
 
     if (processedMessageData.senderId !== currentUserId) {
-      throw new Error("无权以其他用户身份发送消息");
+      throw new Error("no permission to send message as other user");
     }
 
-    // 如果是文本消息，则加密内容
+    // if it's text message, encrypt content
     if (
       processedMessageData.messageType === "text" ||
       !processedMessageData.messageType
@@ -1234,20 +1209,20 @@ export const sendMessage = async (chatroomId, messageData) => {
       try {
         let encryptedContent;
 
-        // 预初始化棘轮状态（如果需要）
+        // pre-initialize ratchet state (if needed)
         if (processedMessageData.recipientId) {
-          // 私聊消息 - 初始化与接收者的棘轮状态
+          // private chat message - initialize with receiver's ratchet state
           await initializeRatchet(
             currentUserId,
             chatroomId,
             processedMessageData.recipientId
           );
         } else {
-          // 群聊消息 - 初始化群组棘轮状态
+          // group chat message - initialize group ratchet state
           await initializeRatchet(currentUserId, chatroomId);
         }
 
-        // 群聊消息 - 使用群组密钥
+        // group chat message - use group key
         encryptedContent = await encryptMessage(
           processedMessageData.messageContent,
           processedMessageData.senderId,
@@ -1256,9 +1231,9 @@ export const sendMessage = async (chatroomId, messageData) => {
 
         processedMessageData.messageContent = encryptedContent;
       } catch (encryptError) {
-        console.error("加密消息失败:", encryptError);
-        // 如果加密失败，发送未加密消息
-        processedMessageData.messageContent = `[加密失败] ${processedMessageData.messageContent}`;
+        console.error("encrypt message failed:", encryptError);
+        // if encryption failed, send unencrypted message
+        processedMessageData.messageContent = `[encrypt failed] ${processedMessageData.messageContent}`;
       }
     }
 
@@ -1270,17 +1245,17 @@ export const sendMessage = async (chatroomId, messageData) => {
 
     try {
     } catch (cacheError) {
-      console.error("清除缓存失败:", cacheError);
+      console.error("clear cache failed:", cacheError);
     }
 
     return newMessageRef.key;
   } catch (error) {
-    console.error("发送消息失败:", error);
+    console.error("send message failed:", error);
     throw error;
   }
 };
 
-// 带缓存的聊天室信息获取
+// get chatroom info
 export const getChatroomInfo = async (chatroomId) => {
   // const cacheKey = `chatroom:${chatroomId}:info`;
   try {
@@ -1290,13 +1265,13 @@ export const getChatroomInfo = async (chatroomId) => {
     return data;
   } catch (error) {
     console.error("Error in getChatroomInfo:", error);
-    // 直接从数据库获取
+    // directly get from database
     const snapshot = await get(dbRef(db, `chatrooms/${chatroomId}`));
     return snapshot.exists() ? snapshot.val() : null;
   }
 };
 
-// 带缓存的成员数据获取
+// get chatroom members
 export const getChatroomMembers = async (groupId) => {
   const cacheKey = `chatroom:${groupId}:members`;
   // const cached = await getCache(cacheKey);
@@ -1310,19 +1285,19 @@ export const getChatroomMembers = async (groupId) => {
   const membersData = await processMembers(usersSnapshot);
 
   if (membersData.length > 0) {
-    await setCache(cacheKey, membersData, 36000); // 10分钟缓存
+    await setCache(cacheKey, membersData, 36000);
   }
   return membersData;
 };
 
-// 成员处理逻辑
+// process member data
 const processMembers = async (usersSnapshot) => {
   if (!usersSnapshot.exists()) return [];
 
   const members = [];
 
   for (const [userId, userData] of Object.entries(usersSnapshot.val())) {
-    // 并行获取必要数据
+    // parallel get necessary data
     const [userSnapshot, statusSnapshot, advancedSettingsSnapshot] =
       await Promise.all([
         get(dbRef(db, `users/${userId}`)),
@@ -1332,7 +1307,7 @@ const processMembers = async (usersSnapshot) => {
 
     if (!userSnapshot.exists()) continue;
 
-    // 基础公开字段
+    // basic public fields
     const member = {
       id: userId,
       username: userSnapshot.child("username").val() || "",
@@ -1344,18 +1319,18 @@ const processMembers = async (usersSnapshot) => {
       isBanned: userData.isBanned || false,
     };
 
-    // 条件性字段处理
+    // conditional field processing
     const advancedSettings = advancedSettingsSnapshot.exists()
       ? advancedSettingsSnapshot.val()
       : {};
 
-    // 1. 邮箱处理
+    // 1. email processing
     member.email =
       advancedSettings.showEmail !== false
         ? userSnapshot.child("email").val() || "anonymous"
         : "anonymous";
 
-    // 2. 状态信息处理
+    // 2. status information processing
     if (
       !Object.keys(advancedSettings).includes("isOnline") ||
       advancedSettings.isOnline
@@ -1385,7 +1360,7 @@ export const setupGroupDataListener = (groupId) => {
       const chatroomInfo = snapshot.val();
       if (!chatroomInfo) return null;
 
-      // 处理群组信息更新
+      // process group information update
       const processedInfo = {
         id: groupId,
         ...chatroomInfo,
@@ -1450,10 +1425,10 @@ export const setupGroupDataListener = (groupId) => {
 //   return members;
 // };
 
-// 消息计数器和密钥轮换
-const MESSAGE_COUNTER_LIMIT = 1000; // 每个密钥最多加密1000条消息
+// increment message counter
+const MESSAGE_COUNTER_LIMIT = 1000; // each key can encrypt up to 1000 messages
 
-// 增加并获取消息计数器
+// increment message counter
 const incrementMessageCounter = async (userId) => {
   if (process.client) {
     try {
@@ -1467,28 +1442,28 @@ const incrementMessageCounter = async (userId) => {
 
       await set(counterRef, counter);
 
-      // 如果计数器超过限制，轮换密钥
+      // if counter exceeds limit, rotate user private key
       if (counter >= MESSAGE_COUNTER_LIMIT) {
         //await rotateUserPrivateKey(userId);
       }
 
       return counter;
     } catch (error) {
-      console.error("更新消息计数器失败:", error);
+      console.error("update message counter failed:", error);
       return 0;
     }
   }
   return 0;
 };
 
-// 轮换用户私钥
+// rotate user's private key
 const rotateUserPrivateKey = async (userId) => {
   if (process.client) {
     try {
-      // 生成新的私钥
+      // generate new private key
       const newPrivateKey = CryptoJS.lib.WordArray.random(32).toString();
 
-      // 使用用户UID派生的密钥加密私钥
+      // use userUID derived key to encrypt private key
       const derivedKey = CryptoJS.PBKDF2(userId, "user-key-salt", {
         keySize: 256 / 32,
         iterations: 10000,
@@ -1499,7 +1474,7 @@ const rotateUserPrivateKey = async (userId) => {
         derivedKey.toString()
       ).toString();
 
-      // 存储新的加密私钥
+      // store new encrypted private key
       const userKeyRef = dbRef(db, `users/${userId}/keys`);
       await set(userKeyRef, {
         private_key: encryptedKey,
@@ -1509,14 +1484,14 @@ const rotateUserPrivateKey = async (userId) => {
 
       return true;
     } catch (error) {
-      console.error("轮换用户私钥失败:", error);
+      console.error("rotate user private key failed:", error);
       return false;
     }
   }
   return false;
 };
 
-// 添加一个函数来解密最后一条消息
+// decrypt last message
 export const decryptLastMessage = async (
   encryptedMessage,
   senderId,
@@ -1525,28 +1500,28 @@ export const decryptLastMessage = async (
   if (!encryptedMessage) return "";
 
   try {
-    // 获取当前用户ID
+    // get current user ID
     const currentUserId = await getCurrentUser();
     if (!currentUserId) {
-      return "[加密消息]";
+      return "[encrypted message]";
     }
 
-    // 尝试解析JSON
+    // try to parse JSON
     let encryptedPackage;
     try {
       encryptedPackage = JSON.parse(encryptedMessage);
     } catch (parseError) {
-      // 如果不是JSON格式，可能是旧版本的加密消息或未加密消息
+      // if not JSON format, possibly old version encrypted message or unencrypted message
       return encryptedMessage;
     }
 
-    // 提取加密组件
+    // extract encrypted components
     const { cipher, iv, mac, type, messageNumber } = encryptedPackage;
 
-    // 确定接收者ID
+    // determine receiver ID
     const recipientId = type === "private" ? senderId : null;
 
-    // 初始化或获取棘轮状态
+    // initialize or get ratchet state
     const ratchetState = await initializeRatchet(
       currentUserId,
       chatroomId,
@@ -1554,10 +1529,10 @@ export const decryptLastMessage = async (
     );
 
     if (!ratchetState) {
-      return "[加密消息]";
+      return "[encrypted message]";
     }
 
-    // 获取消息密钥
+    // get message key
     let messageKey = await updateReceivingChain(
       ratchetState,
       currentUserId,
@@ -1566,7 +1541,7 @@ export const decryptLastMessage = async (
       senderId
     );
 
-    // 如果加密包中包含加密的密钥，尝试解密
+    // if encrypted package contains encrypted key, try decrypt
     if (encryptedPackage.encryptedKey) {
       try {
         const decryptedKey = CryptoJS.AES.decrypt(
@@ -1578,50 +1553,46 @@ export const decryptLastMessage = async (
           messageKey = decryptedKey;
         }
       } catch (e) {
-        console.error("解密密钥失败:", e);
+        console.error("decrypt key failed:", e);
       }
     }
 
-    // 获取当前用户的群组加密密钥
+    // get current user group encryption key
     const userGroupEncryptKey = await getUserGroupEncryptKey(
       currentUserId,
       chatroomId
     );
 
-    // 获取当前用户的私钥
+    // get current user private key
     const userPrivateKey = await getUserPrivateKey(currentUserId);
     if (!userPrivateKey) {
-      throw new Error("无法获取用户私钥");
+      throw new Error("unable to get user private key");
     }
 
-    // 使用私钥解密群组加密密钥
+    // decrypt group encryption key using private key
     const groupKey = CryptoJS.AES.decrypt(
       userGroupEncryptKey,
       userPrivateKey
     ).toString(CryptoJS.enc.Utf8);
 
-    // 使用群组密钥和消息密钥的组合进行解密
+    // use group key and message key combination for decryption
     const combinedKey = CryptoJS.SHA256(`${groupKey}:${messageKey}`).toString();
 
-    // 解密消息
+    // decrypt message
     try {
-      // 解析 IV
       const ivParsed = CryptoJS.enc.Base64.parse(iv);
 
-      // 使用组合密钥解密
       const decrypted = CryptoJS.AES.decrypt(cipher, combinedKey, {
         iv: ivParsed,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7,
       });
 
-      // 转换为字符串
       const messageText = decrypted.toString(CryptoJS.enc.Utf8);
       if (!messageText) {
-        return "[加密消息]";
+        return "[encrypted message]";
       }
 
-      // 验证 HMAC - 使用解密后的原始消息内容
       if (mac) {
         const computedHmac = CryptoJS.HmacSHA256(
           messageText,
@@ -1629,34 +1600,34 @@ export const decryptLastMessage = async (
         ).toString(CryptoJS.enc.Base64);
 
         if (computedHmac !== mac) {
-          console.error("HMAC 验证失败", {
+          console.error("HMAC verification failed", {
             computed: computedHmac,
             received: mac,
             messageText,
             combinedKey,
           });
-          return "[加密消息]";
+          return "[encrypted message]";
         }
       }
 
-      // 解析 JSON
+      // parse JSON
       const messageObj = JSON.parse(messageText);
       if (!messageObj || !messageObj.content) {
-        return "[加密消息]";
+        return "[encrypted message]";
       }
 
       return messageObj.content;
     } catch (decryptError) {
-      console.error("解密最后一条消息失败:", decryptError);
-      return "[加密消息]";
+      console.error("decrypt last message failed:", decryptError);
+      return "[encrypted message]";
     }
   } catch (error) {
-    console.error("处理最后一条消息失败:", error);
-    return "[加密消息]";
+    console.error("process last message failed:", error);
+    return "[encrypted message]";
   }
 };
 
-// 修改 getUserChatrooms 函数，自动解密最后一条消息
+// get user's chatrooms
 export const getUserChatrooms = async (userId) => {
   try {
     const userChatroomsRef = dbRef(db, `user_chatrooms/${userId}`);
@@ -1682,10 +1653,8 @@ export const getUserChatrooms = async (userId) => {
 
           const chatroomData = chatroomSnapshot.val();
 
-          // 获取最后一条消息
           let lastMessage = null;
           if (chatroomData.lastMessage) {
-            // 解密最后一条消息
             const decryptedContent = await decryptLastMessage(
               chatroomData.lastMessage.messageContent,
               chatroomData.lastMessage.senderId,
@@ -1708,7 +1677,7 @@ export const getUserChatrooms = async (userId) => {
             timestamp: lastMessage ? lastMessage.createdAt : 0,
           };
         } catch (error) {
-          console.error(`获取聊天室 ${chatroomId} 信息失败:`, error);
+          console.error(`get chatroom ${chatroomId} info failed:`, error);
           return null;
         }
       })();
@@ -1717,20 +1686,18 @@ export const getUserChatrooms = async (userId) => {
     });
 
     const chatrooms = (await Promise.all(chatroomPromises)).filter(Boolean);
-
-    // 按最后消息时间排序
     return chatrooms.sort((a, b) => {
       const timeA = a.lastMessage ? a.lastMessage.createdAt : 0;
       const timeB = b.lastMessage ? b.lastMessage.createdAt : 0;
       return timeB - timeA;
     });
   } catch (error) {
-    console.error("获取用户聊天室列表失败:", error);
+    console.error("get user chatrooms list failed:", error);
     return [];
   }
 };
 
-// 修改 getGroupList 函数，自动解密最后一条消息
+// get group list
 export const getGroupList = async (userId) => {
   try {
     const userGroupsRef = dbRef(db, `user_groups/${userId}`);
@@ -1754,10 +1721,8 @@ export const getGroupList = async (userId) => {
 
           const groupData = groupSnapshot.val();
 
-          // 获取最后一条消息
           let lastMessage = null;
           if (groupData.lastMessage) {
-            // 解密最后一条消息
             const decryptedContent = await decryptLastMessage(
               groupData.lastMessage.messageContent,
               groupData.lastMessage.senderId,
@@ -1781,7 +1746,7 @@ export const getGroupList = async (userId) => {
             timestamp: lastMessage ? lastMessage.createdAt : 0,
           };
         } catch (error) {
-          console.error(`获取群组 ${groupId} 信息失败:`, error);
+          console.error(`get group ${groupId} info failed:`, error);
           return null;
         }
       })();
@@ -1791,19 +1756,19 @@ export const getGroupList = async (userId) => {
 
     const groups = (await Promise.all(groupPromises)).filter(Boolean);
 
-    // 按最后消息时间排序
+    // sort by last message time
     return groups.sort((a, b) => {
       const timeA = a.lastMessage ? a.lastMessage.createdAt : 0;
       const timeB = b.lastMessage ? b.lastMessage.createdAt : 0;
       return timeB - timeA;
     });
   } catch (error) {
-    console.error("获取用户群组列表失败:", error);
+    console.error("get user group list failed:", error);
     return [];
   }
 };
 
-// Add this new function to encrypt file URLs
+// encrypt file URL
 export const encryptFileUrl = async (
   fileUrl,
   senderId,
@@ -1825,7 +1790,7 @@ export const encryptFileUrl = async (
   }
 };
 
-// 新增函数：处理文件上传后的加密和保存
+// handle file upload response
 export const handleFileUploadResponse = async (
   uploadResponse,
   chatroomId,
@@ -1838,29 +1803,29 @@ export const handleFileUploadResponse = async (
       !uploadResponse.files ||
       !uploadResponse.files.length
     ) {
-      throw new Error("无效的上传响应");
+      throw new Error("invalid upload response");
     }
 
     if (!auth.currentUser) {
       throw new Error("no authenticated");
     }
 
-    // 获取上传后的文件 URL
+    // get uploaded file URL
     const fileUrl = uploadResponse.files[0];
 
-    // 加密文件 URL
+    // encrypt file URL
     const encryptedFileUrl = await encryptFileUrl(
       fileUrl,
       senderId,
       chatroomId,
-      null // 群组消息
+      null // group message
     );
 
-    // 创建消息引用
+    // create message reference
     const chatroomRef = dbRef(db, `chatrooms/${chatroomId}/messages`);
     const newMessageRef = push(chatroomRef);
 
-    // 设置消息数据
+    // set message data
     await set(newMessageRef, {
       senderId,
       messageContent: encryptedFileUrl,
@@ -1874,15 +1839,15 @@ export const handleFileUploadResponse = async (
       originalUrl: fileUrl,
     };
   } catch (error) {
-    console.error("处理文件上传响应失败:", error);
+    console.error("process file upload response failed:", error);
     throw error;
   }
 };
 
-// 添加文件 URL 解密函数
+// decrypt file URL
 export const decryptFileUrl = async (encryptedUrl, senderId, chatroomId) => {
   try {
-    // 从 Realtime Database 中获取的是加密后的消息内容
+    // from Realtime Database, it's encrypted message content
     const decryptedContent = await decryptWithRatchet(
       encryptedUrl,
       senderId,
@@ -1892,12 +1857,12 @@ export const decryptFileUrl = async (encryptedUrl, senderId, chatroomId) => {
 
     return decryptedContent;
   } catch (error) {
-    console.error("解密文件URL失败:", error);
-    return encryptedUrl; // 如果解密失败，返回原始URL
+    console.error("decrypt file URL failed:", error);
+    return encryptedUrl; // if decryption failed, return original URL
   }
 };
 
-// 修改 fetchAndDecryptFile 函数，使用服务器端解密
+// fetch and decrypt file
 export const fetchAndDecryptFile = async (
   url,
   userId,
@@ -1906,16 +1871,16 @@ export const fetchAndDecryptFile = async (
   requireBlob = false
 ) => {
   try {
-    // 使用服务器端API代理来获取文件内容，避免CORS问题
+    // use server-side API proxy to get file content, avoid CORS issues
     const user = auth.currentUser;
     if (!user) {
-      throw new Error("用户未认证");
+      throw new Error("user not authenticated");
     }
 
-    // 获取 ID token 用于服务器认证
+    // get ID token for server authentication
     const idToken = await user.getIdToken();
 
-    // 请求服务器API获取文件 - 服务器会处理解密
+    // request server API to get file - server will handle decryption
     const response = await fetch("/api/fetchFile", {
       method: "POST",
       headers: {
@@ -1930,52 +1895,43 @@ export const fetchAndDecryptFile = async (
       }),
     });
 
-    // 检查响应状态
     if (!response.ok) {
-      // 尝试从响应中解析详细错误
-      let errorMessage = "获取文件失败";
+      let errorMessage = "get file failed";
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorMessage;
       } catch (e) {
-        // 如果响应不是JSON，使用状态文本
-        errorMessage = `获取文件失败: ${response.statusText}`;
+        errorMessage = `get file failed: ${response.statusText}`;
       }
       console.error(`File fetch error: ${errorMessage}`);
       throw new Error(errorMessage);
     }
 
-    // 获取Content-Type
     const contentType =
       response.headers.get("Content-Type") ||
       mimeType ||
       "application/octet-stream";
 
-    // 获取解密后的文件数据作为 Blob
     const fileBlob = new Blob([await response.arrayBuffer()], {
       type: contentType,
     });
 
-    // 创建临时 URL
     const objectUrl = URL.createObjectURL(fileBlob);
 
-    // 返回临时URL用于预览或下载
     if (requireBlob) return { fileUrl: objectUrl, decryptedBlob: fileBlob };
     return objectUrl;
   } catch (error) {
-    console.error("获取并解密文件失败:", error);
+    console.error("get and decrypt file failed:", error);
     throw error;
   }
 };
 
 export const decryptFile = async (encryptedFileArrayBuffer, chatroomId) => {
   try {
-    // 文件的前16字节是 IV
     const encryptedData = new Uint8Array(encryptedFileArrayBuffer);
     const iv = encryptedData.slice(0, 16);
     const encryptedContent = encryptedData.slice(16);
 
-    // 直接获取群组密钥（不再需要用户特定的密钥）
     const groupKeyRef = dbRef(
       db,
       `chatrooms/${chatroomId}/encryption/group_key`
@@ -1983,18 +1939,15 @@ export const decryptFile = async (encryptedFileArrayBuffer, chatroomId) => {
     const groupKeySnapshot = await get(groupKeyRef);
 
     if (!groupKeySnapshot.exists()) {
-      throw new Error("群组加密密钥不存在");
+      throw new Error("group encryption key does not exist");
     }
 
     const rawGroupKey = groupKeySnapshot.val();
 
-    // 处理密钥格式，与加密逻辑保持一致
     const keyBufferUtf8 = Buffer.from(
       CryptoJS.enc.Utf8.parse(rawGroupKey).toString(CryptoJS.enc.Hex),
       "hex"
     );
-
-    // 如果密钥长度不是32字节，使用SHA-256生成32字节密钥
     const groupKey =
       keyBufferUtf8.length !== 32
         ? Buffer.from(
@@ -2003,11 +1956,9 @@ export const decryptFile = async (encryptedFileArrayBuffer, chatroomId) => {
           ).slice(0, 32)
         : keyBufferUtf8;
 
-    // 使用 crypto-js 进行解密
     const wordArray = CryptoJS.lib.WordArray.create(encryptedContent);
     const ivWordArray = CryptoJS.lib.WordArray.create(iv);
 
-    // 使用相同的密钥格式和编码方式
     const decrypted = CryptoJS.AES.decrypt(
       { ciphertext: wordArray },
       CryptoJS.enc.Hex.parse(groupKey.toString("hex")),
@@ -2018,7 +1969,6 @@ export const decryptFile = async (encryptedFileArrayBuffer, chatroomId) => {
       }
     );
 
-    // 转换回 ArrayBuffer
     const decryptedLength = decrypted.sigBytes;
     const decryptedBuffer = new ArrayBuffer(decryptedLength);
     const decryptedView = new DataView(decryptedBuffer);
@@ -2033,22 +1983,20 @@ export const decryptFile = async (encryptedFileArrayBuffer, chatroomId) => {
 
     return decryptedBuffer;
   } catch (error) {
-    console.error("解密文件失败:", error);
+    console.error("decrypt file failed:", error);
     throw error;
   }
 };
 
-// 过滤掉空的反应并统一类型
+// filter and normalize reactions
 function filterAndNormalizeReactions(reactions) {
-  // 过滤掉空的反应
   const filteredReactions = Object.entries(reactions).filter(([key, value]) => {
-    return value && Object.keys(value).length > 0; // 只保留非空的反应
+    return value && Object.keys(value).length > 0;
   });
 
-  // 统一反应类型
   const normalizedReactions = {};
   filteredReactions.forEach(([emojiId, users]) => {
-    normalizedReactions[emojiId] = Object.keys(users); // 统计每个反应的数量
+    normalizedReactions[emojiId] = Object.keys(users);
   });
 
   return normalizedReactions;

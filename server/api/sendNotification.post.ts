@@ -24,14 +24,14 @@ interface SendNotificationResponse {
 }
 
 export default defineEventHandler(async (event) => {
-  // 验证权限
+  // Verify permissions
   const authHeader = getHeader(event, "Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return { success: false, message: "Unauthorized", code: "UNAUTHORIZED" };
   }
   const idToken = authHeader.split("Bearer ")[1];
 
-  // 验证用户
+  // Verify the user
   let senderId: string;
   try {
     const decodedToken = await adminAuth.verifyIdToken(idToken);
@@ -40,11 +40,9 @@ export default defineEventHandler(async (event) => {
     return { success: false, message: "Invalid token", code: "INVALID_TOKEN" };
   }
 
-  // 读取请求体
   const body = await readBody(event);
   const { userIds, notification, isSaveNotification = true } = body;
 
-  // 验证必要字段
   if (!userIds || !Array.isArray(userIds)) {
     return {
       success: false,
@@ -65,11 +63,10 @@ export default defineEventHandler(async (event) => {
     };
   }
 
-  // 批量发送通知
+  // Send notifications in batches
   const results: SendNotificationResponse["results"] = {};
   for (const userId of userIds) {
     try {
-      // 获取用户FCM tokens
       const userSnapshot = await adminDb.ref(`users/${userId}`).once("value");
       if (!userSnapshot.exists()) {
         results[userId] = { success: false };
@@ -86,7 +83,6 @@ export default defineEventHandler(async (event) => {
         continue;
       }
 
-      // 保存通知到数据库
       let notificationId: string | null = null;
       if (isSaveNotification) {
         const notificationRef = adminDb
@@ -101,7 +97,7 @@ export default defineEventHandler(async (event) => {
         notificationId = notificationRef.key;
       }
 
-      // 发送FCM通知
+      // Send FCM notifications
       const message = {
         notification: {
           title: notification.title,

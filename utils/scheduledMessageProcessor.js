@@ -11,9 +11,9 @@ import {
 } from "firebase/database";
 import { db } from "~/firebase/firebase.js";
 
+// process all scheduled messages
 export const processScheduledMessages = async () => {
   try {
-    // Get all chatrooms
     const chatroomsRef = dbRef(db, "chatrooms");
     const chatroomsSnapshot = await get(chatroomsRef);
 
@@ -24,8 +24,6 @@ export const processScheduledMessages = async () => {
 
     chatroomsSnapshot.forEach((chatroomSnapshot) => {
       const chatroomId = chatroomSnapshot.key;
-
-      // Process this chatroom's scheduled messages
       promises.push(processRoomScheduledMessages(chatroomId, now));
     });
 
@@ -35,9 +33,9 @@ export const processScheduledMessages = async () => {
   }
 };
 
+// process scheduled messages for a specific chatroom
 const processRoomScheduledMessages = async (chatroomId, now) => {
   try {
-    // Get scheduled messages that are due
     const scheduledMessagesRef = dbRef(
       db,
       `chatrooms/${chatroomId}/scheduledMessages`
@@ -45,8 +43,8 @@ const processRoomScheduledMessages = async (chatroomId, now) => {
     const dueMessagesQuery = query(
       scheduledMessagesRef,
       orderByChild("scheduledFor"),
-      startAt(1), // Ensure we get valid timestamps
-      endAt(now) // Get messages scheduled up to now
+      startAt(1),
+      endAt(now)
     );
 
     const dueMessagesSnapshot = await get(dueMessagesQuery);
@@ -59,7 +57,6 @@ const processRoomScheduledMessages = async (chatroomId, now) => {
       const messageId = messageSnapshot.key;
       const messageData = messageSnapshot.val();
 
-      // Process files first if any
       if (messageData.files && messageData.files.length > 0) {
         messageData.files.forEach((fileUrl) => {
           const fileMessageRef = push(
@@ -69,13 +66,12 @@ const processRoomScheduledMessages = async (chatroomId, now) => {
             messageContent: fileUrl,
             messageType: "file",
             senderId: messageData.senderId,
-            createdAt: messageData.scheduledFor - 1000, // Slightly earlier than text
+            createdAt: messageData.scheduledFor - 1000,
           };
           promises.push(set(fileMessageRef, fileMessage));
         });
       }
 
-      // Create a regular message for the text content (if not empty)
       if (messageData.messageContent.trim() !== "") {
         const newMessageRef = dbRef(
           db,
@@ -85,14 +81,12 @@ const processRoomScheduledMessages = async (chatroomId, now) => {
           messageContent: messageData.messageContent,
           messageType: messageData.messageType,
           senderId: messageData.senderId,
-          createdAt: messageData.scheduledFor, // Use the scheduled time
+          createdAt: messageData.scheduledFor,
         };
 
-        // Add the message
         promises.push(set(newMessageRef, newMessage));
       }
 
-      // Remove from scheduled
       promises.push(
         remove(
           dbRef(db, `chatrooms/${chatroomId}/scheduledMessages/${messageId}`)

@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
   const { groupId } = params;
   const authUser = await verifyAuth(event);
 
-  // 验证管理员权限
   const adminRef = adminDb.ref(`chatroom_users/${groupId}/${authUser.uid}`);
   const adminSnap = await adminRef.get();
 

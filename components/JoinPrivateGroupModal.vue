@@ -7,7 +7,6 @@
         Join Private Group
       </h2>
 
-      <!-- 输入群组 ID -->
       <input
         type="text"
         v-model="groupID"
@@ -15,7 +14,6 @@
         class="w-full p-2 border dark:border-gray-600 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
       />
 
-      <!-- 显示群组信息 -->
       <div
         v-if="groupInfo"
         class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg shadow-md mb-4"
@@ -57,7 +55,7 @@
         </div>
       </div>
 
-      <!-- 成功信息 -->
+      <!-- Success message -->
       <div
         v-if="successMessage"
         class="bg-green-50 dark:bg-green-900 p-4 rounded-lg shadow-md mb-4"
@@ -67,7 +65,7 @@
         </p>
       </div>
 
-      <!-- 错误信息 -->
+      <!-- error message -->
       <div
         v-if="error"
         class="bg-red-50 dark:bg-red-900 p-4 rounded-lg shadow-md mb-4"
@@ -75,7 +73,7 @@
         <p class="text-sm text-red-600 dark:text-red-300">{{ error }}</p>
       </div>
 
-      <!-- 操作按钮 -->
+      <!-- Operation button -->
       <div class="flex justify-end space-x-2">
         <button
           @click="closeModal"
@@ -149,12 +147,10 @@ watch(groupID, async (newValue) => {
     if (user) {
       const userId = user.uid;
 
-      // 判断是否加入
       isJoined =
         chatroomUsersSnapshot.exists() &&
         Object.keys(chatroomUsersSnapshot.val()).includes(userId);
 
-      // 判断是否在申请中
       const pendingRef = dbRef(db, `chatrooms/${newValue}/pending/${userId}`);
       const pendingSnap = await get(pendingRef);
       isPending = pendingSnap.exists();
@@ -204,7 +200,6 @@ const handleJoin = async () => {
   }
 };
 
-// 假设你有这个函数
 const getUsername = async (userId) => {
   const userRef = dbRef(db, `users/${userId}/username`);
   const userSnap = await get(userRef);

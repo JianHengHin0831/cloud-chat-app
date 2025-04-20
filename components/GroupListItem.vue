@@ -94,11 +94,10 @@
 <script setup>
 import { computed } from "vue";
 
-const emit = defineEmits(["click"]); // 定义点击事件
+const emit = defineEmits(["click"]);
 
-// 处理点击事件
 const handleClick = () => {
-  emit("click", props.group.id); // 触发点击事件并传递群组 ID
+  emit("click", props.group.id);
 };
 
 const props = defineProps({
@@ -116,30 +115,24 @@ const props = defineProps({
 const isActive = computed(() => {
   if (!props.group.lastMessageTime) return false;
 
-  // 獲取當前時間
   const currentTime = new Date();
 
   const messageTime = new Date(props.group.lastMessageTime);
 
-  // 計算時間差（單位：毫秒）
   const timeDiff = currentTime - messageTime;
 
-  // 如果時間差小於 5 分鐘（5 * 60 * 1000 毫秒），則為 true
   return timeDiff <= 5 * 60 * 1000;
 });
 
 const formatTime = (timestamp) => {
   if (!timestamp) return "";
 
-  // 獲取當前時間
   const currentTime = new Date();
 
   const messageTime = new Date(timestamp);
 
-  // 計算時間差（單位：毫秒）
   const timeDiff = currentTime - messageTime;
 
-  // 定義時間常量
   const SECOND = 1000;
   const MINUTE = 60 * SECOND;
   const HOUR = 60 * MINUTE;
@@ -147,49 +140,27 @@ const formatTime = (timestamp) => {
   const WEEK = 7 * DAY;
   const YEAR = 365 * DAY;
 
-  // 根據時間差格式化輸出
   if (timeDiff < MINUTE) {
-    // 少於 1 分鐘
     const seconds = Math.floor(timeDiff / SECOND);
     return `${seconds}s`;
   } else if (timeDiff < HOUR) {
-    // 少於 1 小時
     const minutes = Math.floor(timeDiff / MINUTE);
     return `${minutes}min`;
   } else if (timeDiff < DAY) {
-    // 少於 1 天
     const hours = Math.floor(timeDiff / HOUR);
     return `${hours}h`;
   } else if (timeDiff < WEEK) {
-    // 少於 1 週
     const days = Math.floor(timeDiff / DAY);
     return `${days}d`;
   } else if (timeDiff < YEAR) {
-    // 少於 1 年
     return messageTime.toLocaleDateString("en-US", {
-      weekday: "short", // 星期（縮寫）
-      month: "short", // 月（縮寫）
-      day: "numeric", // 日
+      weekday: "short",
+      month: "short",
+      day: "numeric",
     });
   } else {
-    // 超過 1 年
     const years = Math.floor(timeDiff / YEAR);
     return `${years}y`;
   }
 };
-// // 格式化时间
-// const formatTime = (timestamp) => {
-//   if (!timestamp) return "";
-//   const date = new Date(timestamp);
-//   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-// };
-
-// // 判断群组是否活跃
-// const isActive = computed(() => {
-//   const lastMessageTime = props.group.lastMessageTime;
-//   if (!lastMessageTime) return false;
-//   const now = new Date();
-//   const lastMessageDate = new Date(lastMessageTime);
-//   return now - lastMessageDate < 5 * 60 * 1000; // 5 分钟内活跃
-// });
 </script>

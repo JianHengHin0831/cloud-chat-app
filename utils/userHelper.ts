@@ -1,11 +1,7 @@
 import { db } from "~/firebase/firebase";
 import { ref as dbRef, get } from "firebase/database";
 
-/**
- * Fetch username from user ID
- * @param userId - User ID to look up
- * @returns Promise<string> - Username or "Unknown User" if not found
- */
+// get username by user id
 export const getUsername = async (userId: string): Promise<string> => {
   try {
     if (!userId) return "Unknown User";
@@ -20,11 +16,7 @@ export const getUsername = async (userId: string): Promise<string> => {
   }
 };
 
-/**
- * Bulk fetch usernames for multiple user IDs
- * @param userIds - Array of user IDs
- * @returns Promise<Record<string, string>> - Dictionary of {userId: username}
- */
+// get multiple usernames by user ids
 export const getUsernames = async (
   userIds: string[]
 ): Promise<Record<string, string>> => {

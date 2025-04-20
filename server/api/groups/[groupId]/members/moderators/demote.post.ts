@@ -13,7 +13,6 @@ export default defineEventHandler(async (event) => {
   const { memberId } = await readBody(event);
   const authUser = await verifyAuth(event);
 
-  // 仅admin可操作
   if ((await getRole(groupId, authUser.uid)) !== "admin") {
     throw createError({
       statusCode: 403,

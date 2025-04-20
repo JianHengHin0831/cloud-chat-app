@@ -317,13 +317,12 @@ const router = useRouter();
 const { isSupported, getPermissionStatus, requestPermission, updateToken } =
   useFcmToken();
 
-// 添加缺失的响应式变量
 const emailError = ref("");
 const passwordError = ref("");
 const loginError = ref("");
 const isLoading = ref(false);
 
-// Check notification status after login
+// check if notifications are enabled and update token if needed
 const checkNotifications = async (userId) => {
   if (!isSupported()) return;
 
@@ -333,24 +332,22 @@ const checkNotifications = async (userId) => {
   }
 };
 
-// 处理登录
+//handle user login with email and password
 const handleLogin = async () => {
   const startTime = Date.now();
   try {
     isLoading.value = true;
     error.value = "";
+    loginError.value = "";
     emailError.value = "";
     passwordError.value = "";
-    loginError.value = "";
 
-    // 记录登录尝试
     logEvent("login_attempt", {
       method: "email",
       email: email.value,
       timestamp: new Date().toISOString(),
     });
 
-    // 使用邮箱密码登录
     const userCredential = await signInWithEmailAndPassword(
       auth,
       email.value,
@@ -359,25 +356,20 @@ const handleLogin = async () => {
 
     const user = userCredential.user;
 
-    // 检查用户是否启用了 MFA
     const userRef = dbRef(db, `users/${user.uid}/securitySettings`);
     const userSnapshot = await get(userRef);
 
     if (userSnapshot.exists() && userSnapshot.val().mfaEnabled) {
-      // 用户启用了 MFA，需要验证
       showMFAVerification.value = true;
 
-      // 记录MFA验证请求
       logEvent("mfa_verification_requested", {
         userId: user.uid,
         timestamp: new Date().toISOString(),
       });
     } else {
-      // 没有启用 MFA，直接登录成功
       await checkNotifications(user.uid);
       localStorage.setItem("loginTime", new Date().toISOString());
 
-      // 记录登录成功
       const duration = Date.now() - startTime;
       logEvent("login_success", {
         userId: user.uid,
@@ -400,7 +392,6 @@ const handleLogin = async () => {
   } catch (err) {
     console.error("Login error:", err);
 
-    // 记录登录失败
     logEvent("login_failure", {
       method: "email",
       error: err.code,
@@ -427,7 +418,7 @@ const handleLogin = async () => {
   }
 };
 
-// 验证 MFA 验证码
+//verify mfa code entered by user
 const verifyMFACode = async () => {
   const startTime = Date.now();
   try {
@@ -439,21 +430,17 @@ const verifyMFACode = async () => {
       return;
     }
 
-    // 记录MFA验证尝试
     logEvent("mfa_verification_attempt", {
       userId: auth.currentUser?.uid,
       timestamp: new Date().toISOString(),
     });
 
-    // 验证 TOTP 验证码
     const isValid = await verifyTOTP(mfaVerificationCode.value);
 
     if (isValid) {
-      // 验证成功，完成登录
       await checkNotifications(auth.currentUser.uid);
       localStorage.setItem("loginTime", new Date().toISOString());
 
-      // 记录MFA验证成功
       const duration = Date.now() - startTime;
       logEvent("mfa_verification_success", {
         userId: auth.currentUser?.uid,
@@ -469,7 +456,6 @@ const verifyMFACode = async () => {
 
       await router.push("/");
     } else {
-      // 记录MFA验证失败
       logEvent("mfa_verification_failure", {
         userId: auth.currentUser?.uid,
         reason: "invalid_code",
@@ -485,7 +471,6 @@ const verifyMFACode = async () => {
   } catch (err) {
     console.error("MFA verification error:", err);
 
-    // 记录MFA验证错误
     logEvent("mfa_verification_error", {
       userId: auth.currentUser?.uid,
       error: err.message,
@@ -502,6 +487,7 @@ const verifyMFACode = async () => {
   }
 };
 
+//handle google sign in
 const signInWithGoogle = async () => {
   const startTime = Date.now();
   try {
@@ -509,23 +495,19 @@ const signInWithGoogle = async () => {
     error.value = "";
     loginError.value = "";
 
-    // 记录Google登录尝试
     logEvent("login_attempt", {
       method: "google",
       timestamp: new Date().toISOString(),
     });
 
-    // 使用 Google 登录
     await setPersistence(auth, browserLocalPersistence);
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
 
-    // 检查 Realtime Database 中是否存在该用户
     const userRef = dbRef(db, `users/${user.uid}`);
     const userSnapshot = await get(userRef);
 
     if (!userSnapshot.exists()) {
-      // 如果用户不存在，则创建用户数据
       await set(userRef, {
         username: user.displayName || "Anonymous",
         email: user.email,
@@ -536,7 +518,6 @@ const signInWithGoogle = async () => {
         registerMethod: "google",
       });
 
-      // 记录新用户创建
       logEvent("new_user_created", {
         userId: user.uid,
         method: "google",
@@ -544,26 +525,21 @@ const signInWithGoogle = async () => {
       });
     }
 
-    // 检查用户是否启用了 MFA
     const securitySettingsRef = dbRef(db, `users/${user.uid}/securitySettings`);
     const securitySnapshot = await get(securitySettingsRef);
 
     if (securitySnapshot.exists() && securitySnapshot.val().mfaEnabled) {
-      // 用户启用了 MFA，需要验证
       showMFAVerification.value = true;
 
-      // 记录MFA验证请求
       logEvent("mfa_verification_requested", {
         userId: user.uid,
         method: "google",
         timestamp: new Date().toISOString(),
       });
     } else {
-      // 没有启用 MFA，直接登录成功
       await checkNotifications(user.uid);
       localStorage.setItem("loginTime", new Date().toISOString());
 
-      // 记录Google登录成功
       const duration = Date.now() - startTime;
       logEvent("login_success", {
         userId: user.uid,
@@ -586,7 +562,6 @@ const signInWithGoogle = async () => {
   } catch (err) {
     console.error("Google login error:", err);
 
-    // 记录Google登录失败
     logEvent("login_failure", {
       method: "google",
       error: err.code,

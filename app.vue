@@ -37,7 +37,6 @@ import {
   update,
 } from "firebase/database";
 
-// Initialize color mode store
 const colorModeStore = useColorModeStore();
 const fontSizeStore = useFontSizeStore();
 
@@ -93,12 +92,11 @@ onMounted(async () => {
 
 const isOnline = ref(navigator?.onLine ?? true);
 
-// 更新网络状态
+//Update network status
 const updateNetworkStatus = () => {
   const wasOnline = isOnline.value;
   isOnline.value = navigator.onLine;
 
-  // 记录网络状态变化
   if (wasOnline !== isOnline.value) {
     logEvent("network_status_change", {
       status: isOnline.value ? "online" : "offline",
@@ -111,13 +109,11 @@ const updateNetworkStatus = () => {
   }
 };
 
-// 初始化网络状态监听
+// Initialize network status monitoring
 const initNetworkListener = () => {
   if (process.client) {
-    // 初始状态
     isOnline.value = navigator.onLine;
 
-    // 记录初始网络状态
     logEvent("network_status_initial", {
       status: isOnline.value ? "online" : "offline",
       timestamp: new Date().toISOString(),
@@ -127,17 +123,14 @@ const initNetworkListener = () => {
       status: isOnline.value ? "online" : "offline",
     });
 
-    // 事件监听
     window.addEventListener("online", updateNetworkStatus);
     window.addEventListener("offline", updateNetworkStatus);
 
-    // 额外检测Firebase连接状态
     const checkOnlineStatus = dbRef(db, ".info/connected");
     onValue(checkOnlineStatus, (snap) => {
       const wasConnected = isOnline.value;
       isOnline.value = snap.val() === true;
 
-      // 记录Firebase连接状态变化
       if (wasConnected !== isOnline.value) {
         logEvent("firebase_connection_change", {
           status: isOnline.value ? "connected" : "disconnected",
@@ -155,7 +148,6 @@ const initNetworkListener = () => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
-      // 记录用户登录事件
       logEvent("user_login", {
         userId: user.uid,
         email: user.email,
@@ -172,23 +164,19 @@ onMounted(() => {
         navigateTo("/login");
         return;
       }
-      // Initialize color mode
       colorModeStore.init();
 
-      // 检查 Token 是否过期
       const decodedToken = await user.getIdTokenResult();
       const expirationTime = new Date(decodedToken.expirationTime);
 
       const groups = await fetchUserGroups(user.uid);
 
-      // 记录用户群组数量
       trackMetric("user_group_count", groups.length, {
         user_id: user.uid,
       });
 
       updateUserStatus("online");
 
-      // 记录用户状态更新
       logEvent("user_status_update", {
         userId: user.uid,
         status: "online",
@@ -196,7 +184,6 @@ onMounted(() => {
       });
 
       if (new Date() > expirationTime) {
-        // 记录Token过期事件
         logEvent("token_expired", {
           userId: user.uid,
           timestamp: new Date().toISOString(),
@@ -207,12 +194,10 @@ onMounted(() => {
         navigateTo("/login");
       }
     } else {
-      // 记录用户登出事件
       logEvent("user_logout", {
         timestamp: new Date().toISOString(),
       });
 
-      // Clean up color mode
       colorModeStore.cleanup();
       navigateTo("/login");
     }
@@ -229,14 +214,12 @@ onBeforeUnmount(() => {
   if (auth.currentUser?.uid) {
     updateUserStatus("offline");
 
-    // 记录用户状态更新
     logEvent("user_status_update", {
       userId: auth.currentUser.uid,
       status: "offline",
       timestamp: new Date().toISOString(),
     });
   }
-  // Clean up color mode
   if (colorModeStore.cleanup) {
     colorModeStore.cleanup();
   }
@@ -245,7 +228,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style>
-/* 基础字体大小设置 */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.5s;

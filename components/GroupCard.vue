@@ -42,7 +42,6 @@ const props = defineProps(["group"]);
 const isJoining = ref(false);
 const isMember = ref(false);
 
-// 检查用户是否已经是群组成员
 const checkMembership = async () => {
   const user = auth.currentUser;
   if (!user) return false;
@@ -56,10 +55,9 @@ const checkMembership = async () => {
   }
 };
 
-// 初始化时检查成员状态
 checkMembership();
 
-// 加入群组函数
+// Join group function
 const joinGroup = async () => {
   const user = auth.currentUser;
   if (!user || isMember.value) return;
@@ -68,7 +66,7 @@ const joinGroup = async () => {
 
   try {
     const joinedAt = Date.now();
-    // 1. 添加用户到群组成员列表
+    // 1.Add user to group member list
     const memberRef = dbRef(db, `chatroom_users/${props.group.id}/${user.uid}`);
     await set(memberRef, {
       role: "user",
@@ -77,14 +75,14 @@ const joinGroup = async () => {
       isMuted: false,
     });
 
-    // 2. 将群组添加到用户的群组列表
+    // 2.Add a group to the user's group list
     const userGroupRef = dbRef(
       db,
       `user_chatrooms/${user.uid}/${props.group.id}`
     );
     await set(userGroupRef, true);
 
-    // 3. 更新本地状态
+    // 3. Update local status
     isMember.value = true;
     props.group.members += 1;
 
@@ -96,11 +94,8 @@ const joinGroup = async () => {
     );
 
     //await updateGroupKey(props.group.id);
-
-    // 可以在这里添加成功通知
   } catch (error) {
     console.error("Error joining group:", error);
-    // 可以在这里添加错误通知
   } finally {
     isJoining.value = false;
   }

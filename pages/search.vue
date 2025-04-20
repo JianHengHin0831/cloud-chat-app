@@ -7,20 +7,16 @@
       :progress="loadingProgress"
       :loading-text="loadingText"
     />
-    <!-- 头部导航栏（固定） -->
     <Header
       class="h-16 flex-shrink-0 border-b dark:border-gray-700 shadow-md px-6 flex items-center justify-between"
     />
 
     <div class="flex flex-1 overflow-hidden">
-      <!-- 侧边栏（桌面端） -->
       <Sidebar class="hidden md:flex w-1/12 h-full" />
 
-      <!-- 主内容区 -->
       <div
         class="flex-1 flex flex-col p-2 sm:p-4 md:p-6 overflow-hidden bg-white dark:bg-gray-900"
       >
-        <!-- 搜索栏 & 按钮 -->
         <div
           class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4 mb-4"
         >
@@ -33,7 +29,6 @@
           </button>
         </div>
 
-        <!-- 群组列表（可滚动） -->
         <div
           class="flex-1 overflow-auto pb-16 md:pb-0"
           v-if="filteredGroups.length > 0"
@@ -53,7 +48,6 @@
         </div>
       </div>
 
-      <!-- 移动端底部导航栏 -->
       <MobileNavBar />
     </div>
   </div>
@@ -107,10 +101,9 @@ const loadingText = ref("Loading public groups...");
 const groups = ref([]);
 const unsubscribeGroups = ref(null);
 
-// 获取所有 public 群组信息（实时监听模式）
+// get all public group information (real-time listener mode)
 const setupPublicGroupsListener = async () => {
   try {
-    // 1. 确保认证完成
     await auth.authStateReady();
     const user = auth.currentUser;
     if (!user) {
@@ -120,7 +113,6 @@ const setupPublicGroupsListener = async () => {
     loadingProgress.value = 30;
     loadingText.value = "Connecting to database...";
 
-    // 2. 构造查询
     const chatroomsRef = dbRef(db, "chatrooms");
     const publicGroupsQuery = query(
       chatroomsRef,
@@ -131,7 +123,6 @@ const setupPublicGroupsListener = async () => {
     loadingProgress.value = 50;
     loadingText.value = "Fetching groups data...";
 
-    // 3. 设置实时监听
     unsubscribeGroups.value = onValue(
       publicGroupsQuery,
       async (chatroomsSnapshot) => {
@@ -144,7 +135,6 @@ const setupPublicGroupsListener = async () => {
         loadingProgress.value = 70;
         loadingText.value = "Processing groups data...";
 
-        // 4. 获取成员数据
         const membersPromises = [];
         chatroomsSnapshot.forEach((childSnapshot) => {
           const chatroomId = childSnapshot.key;
@@ -159,7 +149,6 @@ const setupPublicGroupsListener = async () => {
         const membersData = await Promise.all(membersPromises);
         const membersMap = new Map(membersData.map((m) => [m.id, m.count]));
 
-        // 5. 处理数据
         const groupsData = [];
         chatroomsSnapshot.forEach((childSnapshot) => {
           const chatroomData = childSnapshot.val();
@@ -179,7 +168,6 @@ const setupPublicGroupsListener = async () => {
           });
         });
 
-        // 6. 排序并更新数据
         groups.value = groupsData.sort((a, b) => b.lastActive - a.lastActive);
         loadingProgress.value = 100;
         isLoading.value = false;
@@ -199,7 +187,6 @@ const setupPublicGroupsListener = async () => {
   }
 };
 
-// 在组件挂载时设置监听
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -208,7 +195,6 @@ onMounted(() => {
   });
 });
 
-// 在组件卸载时清理监听
 onUnmounted(() => {
   if (unsubscribeGroups.value) {
     unsubscribeGroups.value();

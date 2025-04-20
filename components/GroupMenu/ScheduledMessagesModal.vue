@@ -328,9 +328,8 @@ const props = defineProps({
 
 const emit = defineEmits(["close"]);
 
-// 关闭模态框
+// Close the modal box
 const closeModal = () => {
-  // 如果有未保存的更改，可以在这里添加确认提示
   emit("close");
 };
 
@@ -360,12 +359,10 @@ const newMessage = ref({
 
 // Computed
 const isFormValid = computed(() => {
-  // 检查是否有消息内容或文件
   const hasContent =
     newMessage.value.messageContent.trim() !== "" ||
     selectedFiles.value.length > 0;
 
-  // 检查日期是否有效且在未来
   const scheduledDate = new Date(newMessage.value.scheduledFor).getTime();
   const now = Date.now();
   const isValidFutureDate = !isNaN(scheduledDate) && scheduledDate > now;
@@ -373,7 +370,6 @@ const isFormValid = computed(() => {
   return hasContent && isValidFutureDate;
 });
 
-// 添加日期验证错误提示
 const dateError = computed(() => {
   if (!newMessage.value.scheduledFor) return "";
 
@@ -554,9 +550,8 @@ const saveScheduledMessage = async () => {
       );
       await update(messageRef, messageData);
 
-      // 发送通知给管理员
       await sendNotification({
-        userIds: [auth.currentUser.uid], // 只通知当前用户
+        userIds: [auth.currentUser.uid],
         title: "Scheduled Message Updated",
         body: `Your scheduled message in ${
           props.groupData?.name || "the group"
@@ -586,9 +581,8 @@ const saveScheduledMessage = async () => {
       );
       const newMessageRef = await push(messagesRef, messageData);
 
-      // 发送通知给管理员
       await sendNotification({
-        userIds: [auth.currentUser.uid], // 只通知当前用户
+        userIds: [auth.currentUser.uid],
         title: "Message Scheduled",
         body: `Your message has been scheduled in ${
           props.groupData?.name || "the group"
@@ -659,7 +653,6 @@ const confirmDelete = (id) => {
   messageToDeleteId.value = id;
   showDeleteConfirm.value = true;
 
-  // 确保状态更新后再显示对话框
   nextTick(() => {
     if (!showDeleteConfirm.value) {
       showDeleteConfirm.value = true;
@@ -678,9 +671,8 @@ const deleteScheduledMessage = async () => {
     );
     await remove(messageRef);
 
-    // 发送通知给管理员
     await sendNotification({
-      userIds: [auth.currentUser.uid], // 只通知当前用户
+      userIds: [auth.currentUser.uid],
       title: "Scheduled Message Deleted",
       body: `Your scheduled message in ${
         props.groupData?.name || "the group"

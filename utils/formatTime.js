@@ -3,10 +3,10 @@ import { ref as dbRef, get } from "firebase/database";
 import { db } from "~/firebase/firebase.js";
 import { auth } from "~/firebase/firebase.js";
 
-// 缓存用户设置
+// cache user settings
 let showExactTime = true;
 
-// 获取用户设置
+// get user settings from database
 export const getUserSettings = async () => {
   try {
     const userRef = dbRef(
@@ -19,12 +19,12 @@ export const getUserSettings = async () => {
     }
     return showExactTime;
   } catch (error) {
-    console.error("获取用户设置失败:", error);
-    return true; // 默认显示精确时间
+    console.error("Failed to get user settings:", error);
+    return true; // default to showing exact time
   }
 };
 
-// 格式化时间
+// format timestamp to readable time
 export const formatTime = async (timestamp) => {
   if (!timestamp) return "";
 
@@ -32,7 +32,6 @@ export const formatTime = async (timestamp) => {
   const showExact = await getUserSettings();
 
   if (showExact) {
-    // 精确时间显示
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -41,7 +40,6 @@ export const formatTime = async (timestamp) => {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
   }
 
-  // 相对时间显示
   const currentTime = new Date();
   const timeDiff = currentTime - date;
 
@@ -76,13 +74,13 @@ export const formatTime = async (timestamp) => {
   }
 };
 
+// format time with option to show exact or relative time
 export const formatTimeWithShowExact = (timestamp, showExact) => {
   if (!timestamp) return "";
 
   const date = new Date(timestamp);
 
   if (showExact) {
-    // 精确时间显示
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -91,7 +89,6 @@ export const formatTimeWithShowExact = (timestamp, showExact) => {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
   }
 
-  // 相对时间显示
   const currentTime = new Date();
   const timeDiff = currentTime - date;
 

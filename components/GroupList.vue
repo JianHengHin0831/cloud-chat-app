@@ -105,14 +105,14 @@
 import { Icon } from "@iconify/vue";
 import GroupListItem from "@/components/GroupListItem.vue";
 import JoinPrivateGroupModal from "@/components/JoinPrivateGroupModal.vue";
-const showJoinModal = ref(false); // 是否显示弹窗
+const showJoinModal = ref(false);
 
-// 打开弹窗
+// Open pop-up window
 const openJoinModal = () => {
   showJoinModal.value = true;
 };
 
-// 关闭弹窗
+// Close pop-up window
 const closeJoinModal = () => {
   showJoinModal.value = false;
 };
@@ -128,33 +128,29 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["select"]); // 定义选中事件
+const emit = defineEmits(["select"]);
 
-// 处理群组点击事件
+// Handle group click events
 const handleGroupClick = (groupId) => {
-  emit("select", groupId); // 传递选中的群组 ID 给父组件
+  emit("select", groupId);
 };
 
-const searchQuery = ref(""); // 搜索关键字
+const searchQuery = ref("");
 
-// 过滤群组列表
 const filteredGroups = computed(() => {
   return props.groups.filter((group) =>
     group.name.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
 });
 
-// 过滤置顶群组
 const filteredPinnedGroups = computed(() =>
   filteredGroups.value.filter((group) => group.isPinned && !group.isDisband)
 );
 
-// 过滤活跃群组
 const filteredActiveGroups = computed(() =>
   filteredGroups.value.filter((group) => !group.isPinned && !group.isDisband)
 );
 
-// 过滤不活跃群组
 const filteredInactiveGroups = computed(() =>
   filteredGroups.value.filter((group) => group.isDisband)
 );

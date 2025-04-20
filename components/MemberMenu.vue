@@ -34,7 +34,6 @@
         Transfer Group Ownership
       </button>
 
-      <!-- Add Moderator 按钮 -->
       <button
         v-if="canAddModerator"
         @click="handleAddModerator"
@@ -43,7 +42,6 @@
         Add Moderator
       </button>
 
-      <!-- Remove Moderator 按钮 -->
       <button
         v-if="canRemoveModerator"
         @click="handleRemoveModerator"
@@ -73,7 +71,6 @@
       </button>
     </div>
 
-    <!-- 成员详情弹窗 -->
     <MemberDetailsModal
       v-if="isMemberDetailsModalOpen"
       :member="props.member"
@@ -81,7 +78,6 @@
       @close="closeMemberDetailsModal"
     />
 
-    <!-- 移除成员弹窗 -->
     <RemoveMemberModal
       v-if="isRemoveMemberModalOpen"
       :member="props.member"
@@ -89,7 +85,6 @@
       @confirm="handleRemoveMember"
     />
 
-    <!-- 确认弹窗 -->
     <ConfirmationModal
       v-if="showMuteConfirmation"
       :title="member.isBanned ? 'Unmute Member' : 'Mute Member'"
@@ -119,7 +114,7 @@ import { ref as dbRef, get } from "firebase/database";
 import { auth, db } from "~/firebase/firebase.js";
 
 const props = defineProps({
-  member: Object, // 当前成员对象
+  member: Object,
   currentRole: String,
   chatroomId: String,
 });
@@ -170,31 +165,23 @@ const closeTransferGroupOwnershipModal = () => {
 };
 
 const handleRemoveMember = () => {
-  emit("remove", props.member.id); // 触发移除成员事件
-  closeRemoveMemberModal(); // 关闭弹窗
+  emit("remove", props.member.id);
+  closeRemoveMemberModal();
   emit("close");
 };
 
-// 检查是否可以添加 Moderator
 const canAddModerator = computed(() => {
-  const currentUserRole = props.currentRole || ""; // 默认值为空字符串
-  const memberRole = props.member?.role || ""; // 默认值为空字符串
+  const currentUserRole = props.currentRole || "";
+  const memberRole = props.member?.role || "";
 
-  return (
-    currentUserRole === "admin" && // 只有 admin 可以添加 moderator
-    memberRole === "user" // 目标成员必须是 user
-  );
+  return currentUserRole === "admin" && memberRole === "user";
 });
 
-// 检查是否可以移除 Moderator
 const canRemoveModerator = computed(() => {
-  const currentUserRole = props.currentRole || ""; // 默认值为空字符串
-  const memberRole = props.member?.role || ""; // 默认值为空字符串
+  const currentUserRole = props.currentRole || "";
+  const memberRole = props.member?.role || "";
 
-  return (
-    currentUserRole === "admin" && // 只有 admin 可以移除 moderator
-    memberRole === "moderator" // 目标成员必须是 moderator
-  );
+  return currentUserRole === "admin" && memberRole === "moderator";
 });
 
 const notifyRoleChange = async (groupId, memberId, newRole) => {
@@ -213,36 +200,29 @@ const notifyRoleChange = async (groupId, memberId, newRole) => {
   });
 };
 
-// 处理移除 Moderator
 import { useGroupApi } from "~/composables/useGroupApi";
 const { promoteModerator, demoteModerator, transferGroupOwnership } =
   useGroupApi();
-//TO-DO:BACKEND
 const handleRemoveModerator = async () => {
   try {
     await demoteModerator(props.chatroomId, props.member.id);
     await notifyRoleChange(props.chatroomId, props.member.id, "user");
-    // emit("update-role"); // 触发更新角色事件
-    emit("close"); // 关闭弹窗
+    emit("close");
   } catch (error) {
     console.error("Error demoting member to user:", error);
   }
 };
 
-// 处理添加 Moderator
-//TO-DO:BACKEND
 const handleAddModerator = async () => {
   try {
     await promoteModerator(props.chatroomId, props.member.id);
-    //emit("update-role"); // 触发更新角色事件
     await notifyRoleChange(props.chatroomId, props.member.id, "moderator");
-    emit("close"); // 关闭弹窗
+    emit("close");
   } catch (error) {
     console.error("Error promoting member to moderator:", error);
   }
 };
 
-// 判断是否可以禁言该成员
 const canMute = computed(() => {
   if (props.currentRole === "admin") {
     return props.member.role !== "admin";
@@ -264,12 +244,6 @@ const handleTransferGroupOwnership = async () => {
   } catch (error) {
     console.error("Error transferring group ownership:", error);
   }
-  // 更新 user_chatroom 表
-  // user_chatroom
-  // 检查auth.currentUser.id是不是admin
-  // props.chatroomId
-  // props.member.id -> admin
-  // auth.currentUser.id ->moderator
 };
 
 const confirmMute = () => {

@@ -54,7 +54,6 @@ const showSuccessMessage = ref(false);
 const showErrorMessage = ref(false);
 const isLoading = ref(false);
 
-//TO-DO:BACKEND
 import { useGroupApi } from "~/composables/useGroupApi";
 const { leaveGroup: leaveGroupApi } = useGroupApi();
 const handleLeaveGroup = async () => {
@@ -62,7 +61,6 @@ const handleLeaveGroup = async () => {
   try {
     isLoading.value = true;
 
-    // 记录离开群组尝试
     logEvent("leave_group_attempt", {
       groupId: props.groupId,
       userId: auth.currentUser?.uid,
@@ -78,7 +76,6 @@ const handleLeaveGroup = async () => {
         ? groupSnapshot.val().name
         : "the group";
 
-      // 调用离开群组的 API
       await sendNotification({
         groupId: props.groupId,
         title: "Leave Group",
@@ -96,7 +93,6 @@ const handleLeaveGroup = async () => {
         `${auth.currentUser?.displayName || "A person"} has left the group`
       );
 
-      // 记录离开群组成功
       const duration = Date.now() - startTime;
       logEvent("leave_group_success", {
         groupId: props.groupId,
@@ -119,7 +115,6 @@ const handleLeaveGroup = async () => {
   } catch (error) {
     console.error("Error leaving group:", error);
 
-    // 记录离开群组失败
     logEvent("leave_group_failure", {
       groupId: props.groupId,
       userId: auth.currentUser?.uid,

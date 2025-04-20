@@ -13,7 +13,6 @@ export default defineEventHandler(async (event) => {
   const { userId } = await readBody(event);
   const authUser = await verifyAuth(event);
 
-  // 验证审批者权限
   const approverRef = adminDb.ref(`chatroom_users/${groupId}/${authUser.uid}`);
   const approverSnap = await approverRef.get();
   const approverRole = approverSnap.exists() ? approverSnap.val().role : null;
@@ -22,7 +21,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, message: "Insufficient permissions" });
   }
 
-  // 更新角色
   const userRef = adminDb.ref(`chatroom_users/${groupId}/${userId}`);
   await userRef.set({ role: "user" });
 

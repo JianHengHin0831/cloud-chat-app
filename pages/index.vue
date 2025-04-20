@@ -200,7 +200,7 @@ const currentRole = computed(() => {
     (member) => member?.id === currentUserId.value
   );
 
-  return currentMember?.role ?? null; // 使用 ?. 和 ?? 避免报错
+  return currentMember?.role ?? null; // use ?. and ?? to avoid errors
 });
 const isLoading = ref(false);
 const handleGroupSelect = async (groupId) => {
@@ -232,14 +232,12 @@ const fetchMessages = async (groupId, loadMore = false) => {
       groupId,
       (newMessages) => {
         try {
-          // 处理消息的回调函数
           if (loadMore) {
             messages.value = [...messages.value, ...newMessages];
           } else {
             messages.value = newMessages;
           }
 
-          // 处理文件
           const files = newMessages
             .filter((msg) =>
               ["image", "video", "file"].includes(msg.messageType)
@@ -248,7 +246,7 @@ const fetchMessages = async (groupId, loadMore = false) => {
               id: msg.id,
               url: msg.messageContent,
               type: msg.messageType,
-              name: msg.fileName || "未命名文件",
+              name: msg.fileName || "unnamed file",
               senderId: msg.senderId,
               createdAt: msg.createdAt,
             }));
@@ -259,10 +257,9 @@ const fetchMessages = async (groupId, loadMore = false) => {
             hasMoreMessages.value = false;
           }
 
-          // 更新加载状态
           isLoading.value = false;
         } catch (error) {
-          console.error("处理消息回调失败:", error);
+          console.error("Error processing message callback:", error);
           isLoading.value = false;
         }
       },
@@ -270,7 +267,7 @@ const fetchMessages = async (groupId, loadMore = false) => {
       loadMore && messages.value.length > 0 ? messages.value[0].createdAt : null
     );
   } catch (error) {
-    console.error("获取消息失败:", error);
+    console.error("Error fetching messages:", error);
     isLoading.value = false;
   }
 };
@@ -282,13 +279,11 @@ const fetchGroupData = async (groupId) => {
     if (groupId === selectedGroupData.value) {
       return;
     }
-    // 设置群组信息和成员的实时监听
     const chatroomInfoRef = dbRef(db, `chatrooms/${groupId}`);
     const chatroomMembersRef = dbRef(db, `chatroom_users/${groupId}`);
     if (unsubscribeChatroomInfo) unsubscribeChatroomInfo();
     if (unsubscribeChatroomMembers) unsubscribeChatroomMembers();
 
-    // 监听群组信息变化
     unsubscribeChatroomInfo = onValue(chatroomInfoRef, async (snapshot) => {
       try {
         const chatroomData = snapshot.val();
@@ -307,7 +302,6 @@ const fetchGroupData = async (groupId) => {
       }
     });
 
-    // 监听成员列表变化
     unsubscribeChatroomMembers = onValue(
       chatroomMembersRef,
       async (snapshot) => {
@@ -328,7 +322,6 @@ const fetchGroupData = async (groupId) => {
             getChatroomMembers(groupId),
           ]);
 
-          // 原有状态更新逻辑
           if (chatroomData) {
             selectedGroupData.value = {
               id: groupId,
@@ -341,21 +334,17 @@ const fetchGroupData = async (groupId) => {
           }
 
           selectedGroupMembers.value = membersData;
-
-          //selectedGroupMembers.value = members;
         } catch (error) {
           console.error("Error processing chatroom members:", error);
         }
       }
     );
 
-    // 初始加载数据
     const [chatroomData, membersData] = await Promise.all([
       getChatroomInfo(groupId),
       getChatroomMembers(groupId),
     ]);
 
-    // 原有状态更新逻辑
     if (chatroomData) {
       selectedGroupData.value = {
         id: groupId,
@@ -369,34 +358,31 @@ const fetchGroupData = async (groupId) => {
 
     selectedGroupMembers.value = membersData;
 
-    // 返回清理函数
     return () => {
       unsubscribeChatroomInfo();
       unsubscribeChatroomMembers();
     };
   } catch (error) {
     console.error("Error fetching group data:", error);
-    return () => {}; // 返回空函数作为清理函数
+    return () => {};
   }
 };
 
-// 辅助函数：格式化消息时间
+//format message time
 const formatMessageTime = (timestamp) => {
   if (!timestamp) return "";
   const date = new Date(timestamp);
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
+//load more messages for a group
 const loadMoreMessages = async (groupId) => {
   if (groupId) {
     await fetchMessages(groupId, true);
   }
 };
 
-// Global listener cleanup references
-let groupsListenerCleanup = null;
-let realtimeListenersCleanup = null;
-
+//initialize the application
 const initializeApp = async () => {
   try {
     // Wait for auth to be ready
@@ -551,7 +537,7 @@ const cleanupAllListeners = () => {
 
 const sortGroups = (groups) => {
   return [...groups].sort((a, b) => {
-    // 1. 置顶且未解散的群组排在最前面
+    // 1. Top and undisbanded groups are at the forefront
     if (a.isPinned && !a.isDisband && !(b.isPinned && !b.isDisband)) {
       return -1;
     }
@@ -559,12 +545,12 @@ const sortGroups = (groups) => {
       return 1;
     }
 
-    // 2. 未解散的群组排在已解散群组前面
+    // 2. Undisbanded groups are ranked ahead of disbanded groups
     if (a.isDisband !== b.isDisband) {
       return a.isDisband ? 1 : -1;
     }
 
-    // 3. 按最后消息时间降序排列 (null/undefined视为0)
+    // 3. Order in descending order of last message time (null/undefined is regarded as 0)
     const aTime = a.lastMessageTime || 0;
     const bTime = b.lastMessageTime || 0;
     return bTime - aTime;
@@ -585,10 +571,8 @@ watch(
   { immediate: true }
 );
 
-// 辅助函数：获取未读消息数（可选）
 const getUnreadCount = async (userId, chatroomId) => {
   try {
-    // 取得使用者上次閱讀訊息的 timestamp
     const lastReadRef = dbRef(
       db,
       `chatroom_users/${chatroomId}/${userId}/lastRead`
@@ -596,11 +580,10 @@ const getUnreadCount = async (userId, chatroomId) => {
     const lastReadSnapshot = await get(lastReadRef);
     const lastRead = lastReadSnapshot.exists() ? lastReadSnapshot.val() : 0;
 
-    // 查詢所有 createdAt > lastRead 的訊息
     const unreadQuery = rtdbQuery(
       dbRef(db, `chatrooms/${chatroomId}/messages`),
       orderByChild("createdAt"),
-      startAt(lastRead + 1) // 或直接用 lastRead
+      startAt(lastRead + 1)
     );
 
     const unreadSnapshot = await get(unreadQuery);
@@ -1150,17 +1133,13 @@ const handleToggleMute = async (newMutedState) => {
 };
 
 onUnmounted(() => {
-  // 1. 取消 auth 監聽
   authUnsubscribe();
 
-  // 2. 取消消息監聽
   if (unsubscribeMessages && Array.isArray(unsubscribeMessages)) {
     unsubscribeMessages.forEach((unsubscribe) => unsubscribe());
   }
 
-  // 3. 取消群組即時更新監聽
   if (cleanupListeners) cleanupListeners();
-  // 4. 取消群組數據監聽
   if (cleanupGroupData) cleanupGroupData();
   //cleanupGroupData = await fetchGroupData(selectedGroupId.value);
 });
@@ -1212,7 +1191,6 @@ const checkIsGroupJoined = async (groupId) => {
   }
 };
 
-// 1. 在 selectedGroupId 变化时记录时间戳
 watch(selectedGroupId, async (newGroupId, oldGroupId) => {
   if (
     oldGroupId &&
@@ -1220,7 +1198,6 @@ watch(selectedGroupId, async (newGroupId, oldGroupId) => {
     currentUserId.value &&
     (await checkIsGroupJoined(newGroupId))
   ) {
-    // 如果切换了聊天组，记录前一个 groupId 和当前时间戳
     await set(
       dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
       Date.now()
@@ -1232,14 +1209,12 @@ watch(selectedGroupId, async (newGroupId, oldGroupId) => {
   }
 });
 
-// 2. 在页面卸载时记录时间戳
 onBeforeUnmount(async () => {
   if (
     selectedGroupId.value &&
     currentUserId.value &&
     (await checkIsGroupJoined(selectedGroupId.value))
   ) {
-    // 记录当前 groupId 和时间戳
     set(
       dbRef(
         db,
@@ -1250,14 +1225,12 @@ onBeforeUnmount(async () => {
   }
 });
 
-// 3. 监听路由切换时记录
 router.beforeEach(async (to, from) => {
   if (
     selectedGroupId.value &&
     currentUserId.value &&
     (await checkIsGroupJoined(selectedGroupId.value))
   ) {
-    // 切换页面时记录 lastRead 时间戳
     await set(
       dbRef(
         db,
@@ -1268,14 +1241,12 @@ router.beforeEach(async (to, from) => {
   }
 });
 
-// 4. 在浏览器关闭时记录
 window.addEventListener("beforeunload", async () => {
   if (
     selectedGroupId.value &&
     currentUserId.value &&
     (await checkIsGroupJoined(selectedGroupId.value))
   ) {
-    // 在浏览器关闭/刷新时记录当前 groupId 和时间戳
     await set(
       dbRef(
         db,
@@ -1286,7 +1257,7 @@ window.addEventListener("beforeunload", async () => {
   }
 });
 
-// 5. 使用 Firebase onDisconnected 来确保网络中断时记录
+// Use Firebase onDisconnected to ensure logging in the event of network outages
 const markLastReadOnDisconnect = async () => {
   if (
     selectedGroupId.value &&
@@ -1298,11 +1269,9 @@ const markLastReadOnDisconnect = async () => {
       `chatroom_users/${selectedGroupId.value}/${currentUserId.value}/lastRead`
     );
     onDisconnect(lastReadRef).set(Date.now());
-    // 记录断开连接时的时间戳
   }
 };
 
-// 页面加载时，调用 markLastReadOnDisconnect
 onMounted(() => {
   markLastReadOnDisconnect();
 });

@@ -334,14 +334,12 @@ const handleExternalViewerError = () => {
   directPreviewFailed.value = true;
 };
 
-// 修改预览处理逻辑
+// Modify the preview processing logic
 const handlePreview = async () => {
   if (isOfficeFile.value) {
-    // Office 文件使用外部查看器
     useExternalViewer.value = true;
     useDirectPreview.value = false;
   } else {
-    // 其他文件尝试直接预览
     useDirectPreview.value = true;
     useExternalViewer.value = false;
   }

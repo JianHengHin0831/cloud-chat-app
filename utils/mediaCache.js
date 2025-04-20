@@ -1,67 +1,50 @@
-// 媒体文件缓存管理器
+// media file caching manager
 const mediaCache = new Map();
 const mediaCacheExpiry = new Map();
 const mediaPreloadQueue = new Map();
-const CACHE_DURATION = 30 * 60 * 1000; // 30分钟缓存时间
+const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes cache duration
 
-/**
- * 从缓存获取媒体URL
- * @param {string} key - 原始媒体URL
- * @returns {string|null} - 缓存的解密URL或null
- */
+// get cached media url if available and not expired
 export const getCachedMediaUrl = (key) => {
   if (mediaCache.has(key)) {
     const expiry = mediaCacheExpiry.get(key) || 0;
     if (expiry > Date.now()) {
       return mediaCache.get(key);
     }
-    // 过期了，删除缓存
     mediaCache.delete(key);
     mediaCacheExpiry.delete(key);
   }
   return null;
 };
 
-/**
- * 将解密后的媒体URL存入缓存
- * @param {string} key - 原始媒体URL
- * @param {string} decryptedUrl - 解密后的URL
- */
+// cache decrypted media url
 export const cacheMediaUrl = (key, decryptedUrl) => {
   mediaCache.set(key, decryptedUrl);
   mediaCacheExpiry.set(key, Date.now() + CACHE_DURATION);
 };
 
-/**
- * 添加预加载任务
- * @param {string} key - 原始媒体URL
- * @param {Function} decryptFn - 解密函数
- */
+// add preload task to queue
 export const addToPreloadQueue = (key, decryptFn) => {
   if (!mediaPreloadQueue.has(key) && !mediaCache.has(key)) {
     mediaPreloadQueue.set(key, decryptFn);
   }
 };
 
-/**
- * 执行预加载队列中的任务
- */
+// process tasks in preload queue
 export const processPreloadQueue = async () => {
   for (const [key, decryptFn] of mediaPreloadQueue.entries()) {
     try {
       const decryptedUrl = await decryptFn();
       cacheMediaUrl(key, decryptedUrl);
     } catch (error) {
-      console.error("预加载媒体文件失败:", error);
+      console.error("Failed to preload media file:", error);
     } finally {
       mediaPreloadQueue.delete(key);
     }
   }
 };
 
-/**
- * 清理过期的缓存
- */
+// clean expired entries from media cache
 export const cleanExpiredCache = () => {
   const now = Date.now();
   for (const [key, expiry] of mediaCacheExpiry.entries()) {
@@ -72,7 +55,7 @@ export const cleanExpiredCache = () => {
   }
 };
 
-// 定期清理过期缓存
+// run cache cleanup periodically
 if (process.client) {
-  setInterval(cleanExpiredCache, 5 * 60 * 1000); // 每5分钟清理一次
+  setInterval(cleanExpiredCache, 5 * 60 * 1000); // clean every 5 minutes
 }

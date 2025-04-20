@@ -1,6 +1,6 @@
-import { logger, monitoringClient } from "./firebase-admin";
+import { monitoringClient } from "./firebase-admin";
 
-//记录自定义指标;
+//Record custom metrics;
 export async function recordMetric(
   metricName: string,
   value: number,
@@ -31,11 +31,11 @@ export async function recordMetric(
       ],
     });
   } catch (error) {
-    logger.error("Failed to record metric", { error, metricName });
+    // logger.error("Failed to record metric", { error, metricName });
   }
 }
 
-//记录结构化日志
+//Record structured logs
 export function logEvent(
   eventType: string,
   details: Record<string, any>,
@@ -46,7 +46,6 @@ export function logEvent(
     severity,
     ...details,
     timestamp: new Date().toISOString(),
-    // 添加资源标识
     resource: {
       labels: {
         project_id:
@@ -57,15 +56,11 @@ export function logEvent(
 
   switch (severity) {
     case "ERROR":
-      logger.error({ message: eventType, jsonPayload: logData });
       break;
     case "WARNING":
-      logger.warn({ message: eventType, jsonPayload: logData });
       break;
     case "DEBUG":
-      logger.debug({ message: eventType, jsonPayload: logData });
       break;
     default:
-      logger.info({ message: eventType, jsonPayload: logData });
   }
 }

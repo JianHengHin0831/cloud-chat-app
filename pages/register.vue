@@ -383,10 +383,10 @@ const emailError = ref("");
 const passwordError = ref("");
 const registrationError = ref("");
 const verificationSent = ref(false);
-const isLoading = ref(false); // 加載狀態
+const isLoading = ref(false); // loading state
 const router = useRouter();
 
-// 驗證電子郵件
+// validate email
 const validateEmail = () => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!email.value) {
@@ -398,7 +398,7 @@ const validateEmail = () => {
   }
 };
 
-// 驗證密碼
+//validate password strength and match
 const validatePassword = () => {
   const passwordRegex =
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
@@ -414,7 +414,7 @@ const validatePassword = () => {
   }
 };
 
-// 檢查表單是否有效
+//check if form is valid
 const isFormValid = computed(() => {
   return (
     email.value &&
@@ -425,9 +425,8 @@ const isFormValid = computed(() => {
   );
 });
 
-// 检查用户是否已注册
+//check if user already exists
 const checkIfUserExists = async (email) => {
-  // 在 RTDB 中查询用户，使用邮箱作为键（需要先编码）
   const emailKey = encodeEmailForRTDB(email);
   const userRef = dbRef(db, `users/emailToUid/${emailKey}`);
   const snapshot = await get(userRef);
@@ -437,34 +436,30 @@ const checkIfUserExists = async (email) => {
 import { useUserApi } from "~/composables/useUserApi";
 const { register } = useUserApi();
 
-// 处理注册
+//handle user registration
 const handleRegister = async (event) => {
   event.preventDefault();
 
   try {
-    // 验证表单
     validateEmail();
     validatePassword();
     if (!isFormValid.value) {
       return;
     }
 
-    // 检查密码和确认密码是否一致
     if (password.value !== confirmPassword.value) {
       passwordError.value = "Password and confirm password must match.";
       return;
     }
 
-    // 检查用户是否已注册
     const userExists = await checkIfUserExists(email.value);
     if (userExists) {
       registrationError.value = "This email is already registered.";
       return;
     }
 
-    isLoading.value = true; // 开始加载
+    isLoading.value = true;
 
-    // 使用 Firebase Authentication 创建用户
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       email.value,
@@ -472,34 +467,28 @@ const handleRegister = async (event) => {
     );
     const user = userCredential.user;
 
-    // 发送验证邮件
     await sendEmailVerification(user);
     verificationSent.value = true;
 
-    // 监听用户的验证状态
     const interval = setInterval(async () => {
       await user.reload();
       if (user.emailVerified) {
         clearInterval(interval);
 
-        // 更新用户的显示名称
         await updateProfile(user, {
           displayName: displayName.value,
         });
 
-        // 将用户信息存储到 Realtime Database
         const userData = {
           username: displayName.value,
           email: user.email,
-          createdAt: { ".sv": "timestamp" }, // 使用服务器时间戳
+          createdAt: { ".sv": "timestamp" },
           joinedAt: { ".sv": "timestamp" },
           emailVerified: user.emailVerified,
           avatarUrl: null,
           registerMethod: "email",
           lastLogin: { ".sv": "timestamp" },
         };
-
-        // 写入多个路径的原子操作
 
         const updates = {};
         updates[`users/${user.uid}`] = userData;
@@ -513,50 +502,44 @@ const handleRegister = async (event) => {
 
         router.push("/login");
       }
-    }, 1000); // 每秒检查一次验证状态
+    }, 1000);
   } catch (error) {
     console.error("Registration error:", error);
     registrationError.value = `Registration failed: ${error.message}`;
   } finally {
-    isLoading.value = false; // 结束加载
+    isLoading.value = false;
   }
 };
 
-// // 檢查用戶是否已註冊
 // const checkIfUserExists = async (email) => {
-//   const usersRef = doc(db, "users", email); // 使用電子郵件作為文檔 ID
+//   const usersRef = doc(db, "users", email);
 //   const docSnap = await getDoc(usersRef);
 //   return docSnap.exists();
 // };
 
-// // 處理註冊
 // const handleRegister = async (event) => {
 //   event.preventDefault();
 
 //   try {
-//     // 驗證表單
 //     validateEmail();
 //     validatePassword();
 //     if (!isFormValid.value) {
 //       return;
 //     }
 
-//     // 檢查密碼和確認密碼是否一致
 //     if (password.value !== confirmPassword.value) {
 //       passwordError.value = "Password and confirm password must match.";
 //       return;
 //     }
 
-//     // 檢查用戶是否已註冊
 //     const userExists = await checkIfUserExists(email.value);
 //     if (userExists) {
 //       registrationError.value = "This email is already registered.";
 //       return;
 //     }
 
-//     isLoading.value = true; // 開始加載
+//     isLoading.value = true;
 
-//     // 使用 Firebase Authentication 創建用戶
 //     const userCredential = await createUserWithEmailAndPassword(
 //       auth,
 //       email.value,
@@ -564,39 +547,36 @@ const handleRegister = async (event) => {
 //     );
 //     const user = userCredential.user;
 
-//     // 發送驗證郵件
 //     await sendEmailVerification(user);
 //     verificationSent.value = true;
 
-//     // 監聽用戶的驗證狀態
 //     const interval = setInterval(async () => {
 //       await user.reload();
 //       if (user.emailVerified) {
 //         clearInterval(interval);
 
-//         // 更新用戶的顯示名稱
 //         await updateProfile(user, {
 //           displayName: displayName.value,
 //         });
 
 //         await setDoc(doc(db, "users", user.uid), {
-//           username: displayName.value, // 用戶名
-//           email: user.email, // 電子郵件
-//           createdAt: new Date().toISOString(), // 創建時間
-//           joinedAt: new Date().toISOString(), // 加入時間
-//           emailVerified: user.emailVerified, // 郵件驗證狀態
-//           avatarUrl: null, // 頭像 URL（默認為 null）
-//           registerMethod: "email", // 註冊方式
+//           username: displayName.value,
+//           email: user.email,
+//           createdAt: new Date().toISOString(),
+//           joinedAt: new Date().toISOString(),
+//           emailVerified: user.emailVerified,
+//           avatarUrl: null,
+//           registerMethod: "email",
 //         });
 
 //         router.push("/login");
 //       }
-//     }, 1000); // 每秒檢查一次驗證狀態
+//     }, 1000);
 //   } catch (error) {
 //     console.error("Registration error:", error);
 //     registrationError.value = `Registration failed: ${error.message}`;
 //   } finally {
-//     isLoading.value = false; // 結束加載
+//     isLoading.value = false;
 //   }
 // };
 // Password visibility toggles

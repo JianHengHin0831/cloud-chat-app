@@ -12,7 +12,6 @@
         to the group?
       </p>
 
-      <!-- 操作按钮 -->
       <div class="flex justify-end space-x-4">
         <button
           @click="$emit('close')"
@@ -38,8 +37,8 @@ import { sendNotification } from "~/utils/sendNotification";
 import { writeActivityLog } from "~/utils/activityLog";
 
 const props = defineProps({
-  user: Object, // 用户信息
-  groupId: String, // 群组ID
+  user: Object,
+  groupId: String,
 });
 
 const emit = defineEmits(["close", "confirm"]);
@@ -47,7 +46,6 @@ const emit = defineEmits(["close", "confirm"]);
 const handleConfirm = async () => {
   const startTime = Date.now();
 
-  // 记录确认添加成员尝试
   logEvent("confirm_add_member_attempt", {
     groupId: props.groupId,
     userId: props.user.id,
@@ -59,7 +57,6 @@ const handleConfirm = async () => {
   try {
     emit("confirm", props.user);
 
-    // 发送通知给被添加的用户
     await sendNotification({
       userIds: [props.user.id],
       title: "Group Invitation",
@@ -71,7 +68,6 @@ const handleConfirm = async () => {
       excludeMuted: true,
     });
 
-    // 记录活动日志
     await writeActivityLog(
       props.groupId,
       auth.currentUser?.uid,
@@ -80,7 +76,6 @@ const handleConfirm = async () => {
       } has invited ${props.user.username} to join the group`
     );
 
-    // 记录确认添加成员成功
     const duration = Date.now() - startTime;
     logEvent("confirm_add_member_success", {
       groupId: props.groupId,
@@ -101,7 +96,6 @@ const handleConfirm = async () => {
   } catch (error) {
     console.error("Error confirming add member:", error);
 
-    // 记录确认添加成员失败
     logEvent("confirm_add_member_failure", {
       groupId: props.groupId,
       userId: props.user.id,

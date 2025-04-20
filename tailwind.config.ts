@@ -11,11 +11,11 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#1DA1F2", // 自定義顏色
+        primary: "#1DA1F2",
         secondary: "#14171A",
       },
       spacing: {
-        72: "18rem", // 自定義間距
+        72: "18rem",
         84: "21rem",
         96: "24rem",
       },

@@ -24,14 +24,14 @@
     </div>
 
     <div class="p-4 mx-2 md:my-3 flex-grow">
-      <!-- Desktop Group Info 标题 -->
+      <!-- Desktop Group Info  -->
       <h3
         class="text-lg border-b-2 dark:border-gray-700 py-2 font-bold hidden md:block"
       >
         Group Info
       </h3>
 
-      <!-- 成员列表 -->
+      <!-- Member List -->
       <div class="mt-2 md:mt-4">
         <div class="flex">
           <h4 class="text-gray-500 dark:text-gray-400 font-medium">
@@ -58,14 +58,12 @@
             :key="member.id"
             class="flex items-center py-2 border-b dark:border-gray-700"
           >
-            <!-- 头像 -->
             <div class="relative">
               <img
                 :src="member.avatarUrl"
                 alt="avatar"
                 class="w-10 h-10 rounded-full mr-3"
               />
-              <!-- 禁言标记 -->
               <div
                 v-if="member.isBanned"
                 class="absolute -top-1 -right-[-8px] bg-red-500 rounded-full p-1"
@@ -103,7 +101,6 @@
         </ul>
       </div>
 
-      <!-- 文件共享 -->
       <div class="mt-4" v-if="sharedFiles.length > 0">
         <div class="flex">
           <h4 class="text-gray-500 dark:text-gray-400 font-medium">
@@ -146,7 +143,6 @@
         </div>
       </div>
 
-      <!-- 设置 -->
       <div class="mt-4" v-if="!isDisband">
         <div class="flex items-center justify-between mt-2">
           <span class="text-sm dark:text-gray-200">Mute Notifications</span>
@@ -238,7 +234,6 @@
         </div>
       </div>
 
-      <!-- 弹窗组件 -->
       <AllMembersModal
         v-if="isAllMembersModalOpen"
         :members="members"
@@ -331,19 +326,19 @@ const emit = defineEmits(["update:isMuted", "update:isPinned", "back"]);
 const isAddMemberModalOpen = ref(false);
 const pendingUsers = ref([]);
 
-// 打开添加成员弹窗
+// Open the Add Member Pop-up
 const openAddMemberModal = () => {
   isAddMemberModalOpen.value = true;
 };
 
-// 关闭添加成员弹窗
+// Close the Add Member Pop-up
 const closeAddMemberModal = () => {
   isAddMemberModalOpen.value = false;
 };
 
 const handleAddMember = async (userId) => {
   try {
-    // 发送通知
+    // Send notification
     const now = Date.now();
 
     // 1. Save to users/{userId}/invitations/{groupId}
@@ -390,12 +385,10 @@ const fetchPendingUsers = async (groupId) => {
 
     const pendingUsersRef = dbRef(db, `chatrooms/${groupId}/pending`);
 
-    // 取消之前的监听（如果有）
     if (unsubscribePendingUsers) {
       off(pendingUsersRef, "value", unsubscribePendingUsers);
     }
 
-    // 实时监听数据变化
     unsubscribePendingUsers = onValue(pendingUsersRef, async (snapshot) => {
       if (!snapshot.exists()) {
         pendingUsers.value = [];
@@ -452,12 +445,10 @@ const listenToPendingInvitations = async (groupId) => {
 
     const invitationsRef = dbRef(db, `chatrooms/${groupId}/pendingInvitations`);
 
-    // 清除旧的监听（避免重复监听）
     if (unsubscribePendingInvitations) {
       off(invitationsRef, "value", unsubscribePendingInvitations);
     }
 
-    // 设置新的实时监听
     unsubscribePendingInvitations = onValue(
       invitationsRef,
       async (snapshot) => {
@@ -548,8 +539,7 @@ const notifyMemberApproval = async (groupId, userId, approved) => {
     isSaveNotification: true,
   });
 };
-
-// 同意待处理用户
+//Agree with the pending user
 const approvePendingUser = async (userId) => {
   try {
     await approveMemberApi(props.selectedGroupId, userId);
@@ -564,7 +554,7 @@ const approvePendingUser = async (userId) => {
   }
 };
 
-// 拒绝待处理用户
+// Reject pending users
 const rejectPendingUser = async (userId) => {
   try {
     await rejectMemberApi(props.selectedGroupId, userId);
@@ -584,7 +574,6 @@ const notifyMemberRemoval = async (groupId, memberId) => {
   });
 };
 
-//TO-DO:BACKEND
 const handleRemoveMember = async (memberId) => {
   try {
     // await remove(dbRef(db, `chatroom_users/${chatroomUserPath}`));
@@ -598,8 +587,6 @@ const handleRemoveMember = async (memberId) => {
         (await getUsername(memberId)) || "a member"
       } from the group`
     );
-
-    // 可以在这里触发 UI 更新或显示成功提示
   } catch (error) {
     console.error("Error removing member:", error);
   }
@@ -629,7 +616,6 @@ const formatFilesTime = async () => {
   displayedFiles.value = formatted;
 };
 
-// 监听文件变化
 watch(() => props.sharedFiles, formatFilesTime, { immediate: true });
 
 const isAllMembersModalOpen = ref(false);
@@ -652,31 +638,9 @@ const closeAllFilesModal = () => {
 };
 
 const handleMemberClick = (member) => {
-  selectedMember.value = member; // 设置选中的成员
-  openMemberMenu(member); // 打开成员菜单
+  selectedMember.value = member;
+  openMemberMenu(member);
 };
-
-// const handleRemoveMember = async (memberId) => {
-//   try {
-//     // 假设 chatroomId 是当前群组的 ID
-//     const chatroomId = "your-chatroom-id"; // 替换为实际的 chatroomId
-
-//     // 构建文档路径
-//     const chatroomUserDocRef = doc(
-//       db,
-//       "chatroom_user",
-//       `${chatroomId}_${memberId}`
-//     );
-
-//     // 删除文档
-//     await deleteDoc(chatroomUserDocRef);
-
-//     // 可以在这里触发 UI 更新或显示成功提示
-//   } catch (error) {
-//     console.error("Error removing member:", error);
-//     // 可以在这里显示错误提示
-//   }
-// };
 
 const {
   approveMember: approveMemberApi,
@@ -689,7 +653,6 @@ const handleMuteMember = async ({ memberId, isMuted }) => {
   try {
     await muteMemberApi(props.selectedGroupId, memberId, isMuted);
 
-    // 发送通知
     await sendNotification({
       userIds: [memberId],
       title: isMuted ? "You Have Been Muted" : "You Have Been Unmuted",
@@ -700,7 +663,6 @@ const handleMuteMember = async ({ memberId, isMuted }) => {
       isSaveNotification: true,
     });
 
-    // 记录活动日志
     await writeActivityLog(
       props.selectedGroupId,
       auth.currentUser?.uid || "system",
@@ -715,7 +677,6 @@ const handleMuteMember = async ({ memberId, isMuted }) => {
 </script>
 
 <style scoped>
-/* Switch container */
 .switch {
   position: relative;
   display: inline-block;

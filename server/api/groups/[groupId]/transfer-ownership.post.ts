@@ -14,7 +14,6 @@ export default defineEventHandler(async (event) => {
 
   const { newOwnerId } = await readBody(event);
 
-  // 验证管理员权限
   const adminRef = adminDb.ref(`chatroom_users/${groupId}/${authUser.uid}`);
   const adminSnap = await adminRef.get();
 
@@ -25,7 +24,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 验证新拥有者是否存在
   const newOwnerRef = adminDb.ref(`chatroom_users/${groupId}/${newOwnerId}`);
   const newOwnerSnap = await newOwnerRef.get();
 

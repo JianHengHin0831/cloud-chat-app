@@ -13,7 +13,6 @@ export default defineEventHandler(async (event) => {
   const { userId } = await readBody(event);
   const authUser = await verifyAuth(event);
 
-  // 验证权限
   const requesterRef = adminDb.ref(`chatroom_users/${groupId}/${authUser.uid}`);
   const requesterSnap = await requesterRef.get();
   const requesterRole = requesterSnap.exists()

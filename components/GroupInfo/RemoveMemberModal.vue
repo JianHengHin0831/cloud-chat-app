@@ -10,7 +10,6 @@
         from the group?
       </p>
 
-      <!-- 操作按钮 -->
       <div class="flex justify-end space-x-4">
         <button
           @click="$emit('close')"
@@ -36,8 +35,8 @@ import { sendNotification } from "~/utils/sendNotification";
 import { writeActivityLog } from "~/utils/activityLog";
 
 const props = defineProps({
-  member: Object, // 成员信息
-  groupId: String, // 群组ID
+  member: Object,
+  groupId: String,
 });
 
 const emit = defineEmits(["close", "confirm"]);
@@ -45,7 +44,6 @@ const emit = defineEmits(["close", "confirm"]);
 const confirmRemove = async () => {
   const startTime = Date.now();
 
-  // 记录移除成员尝试
   logEvent("remove_member_attempt", {
     groupId: props.groupId,
     memberId: props.member.id,
@@ -55,9 +53,8 @@ const confirmRemove = async () => {
   });
 
   try {
-    emit("confirm"); // 触发确认移除事件
+    emit("confirm");
 
-    // 发送通知给被移除的成员
     await sendNotification({
       userIds: [props.member.id],
       title: "Removed from Group",
@@ -69,7 +66,6 @@ const confirmRemove = async () => {
       excludeMuted: true,
     });
 
-    // 记录活动日志
     await writeActivityLog(
       props.groupId,
       auth.currentUser?.uid,
@@ -78,7 +74,6 @@ const confirmRemove = async () => {
       } has removed ${await getUsername(props.member.id)} from the group`
     );
 
-    // 记录移除成员成功
     const duration = Date.now() - startTime;
     logEvent("remove_member_success", {
       groupId: props.groupId,
@@ -99,7 +94,6 @@ const confirmRemove = async () => {
   } catch (error) {
     console.error("Error removing member:", error);
 
-    // 记录移除成员失败
     logEvent("remove_member_failure", {
       groupId: props.groupId,
       memberId: props.member.id,
@@ -113,7 +107,7 @@ const confirmRemove = async () => {
       group_id: props.groupId,
     });
   } finally {
-    emit("close"); // 关闭弹窗
+    emit("close");
   }
 };
 </script>

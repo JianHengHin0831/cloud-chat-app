@@ -323,7 +323,6 @@ const joinGroup = async (groupId) => {
 
   try {
     const joinedAt = Date.now();
-    // 1. 添加用户到群组成员列表
     const memberRef = dbRef(
       db,
       `chatroom_users/${groupId}/${auth.currentUser.uid}`
@@ -334,7 +333,6 @@ const joinGroup = async (groupId) => {
       isPinned: false,
       isMuted: false,
     });
-    // 2. 将群组添加到用户的群组列表
     const userGroupRef = dbRef(
       db,
       `user_chatrooms/${auth.currentUser.uid}/${groupId}`
@@ -348,11 +346,8 @@ const joinGroup = async (groupId) => {
       joinedAt + 1
     );
     //await updateGroupKey(props.group.id);
-
-    // 可以在这里添加成功通知
   } catch (error) {
     console.error("Error joining group:", error);
-    // 可以在这里添加错误通知
   }
 };
 

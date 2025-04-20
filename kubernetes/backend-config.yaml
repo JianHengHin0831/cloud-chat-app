@@ -10,4 +10,4 @@ spec:
     affinityType: "GENERATED_COOKIE"
     affinityCookieTtlSec: 1800
   securityPolicy:
-    name: "cloudtalk-security-policy" # 如果您有 Cloud Armor 安全策略
+    name: "cloudtalk-security-policy"

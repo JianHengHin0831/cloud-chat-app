@@ -110,7 +110,7 @@ import { VueTelInput } from "vue3-tel-input";
 import "vue3-tel-input/dist/vue3-tel-input.css";
 
 const auth = getAuth();
-auth.languageCode = "en"; // 改为英文，因为短信验证码通常是英文的
+auth.languageCode = "en";
 
 const is2FAEnabled = ref(false);
 const showEnrollmentForm = ref(false);
@@ -120,13 +120,12 @@ const error = ref("");
 const qrCode = ref("");
 const secret = ref("");
 const isRecaptchaVerified = ref(false);
-// 启用二次验证
+
 const enable2FA = async () => {
   try {
     error.value = "";
     showEnrollmentForm.value = true;
 
-    // 生成 TOTP 密钥和二维码
     const { secret: newSecret, qrCode: newQrCode } = await generateTOTP();
     secret.value = newSecret;
     qrCode.value = newQrCode;
@@ -136,7 +135,6 @@ const enable2FA = async () => {
   }
 };
 
-// 验证验证码
 const verifyCode = async () => {
   try {
     error.value = "";
@@ -145,7 +143,6 @@ const verifyCode = async () => {
       return;
     }
 
-    // 验证 TOTP 码
     const isValid = await verifyTOTP(verificationCode.value);
     if (isValid) {
       is2FAEnabled.value = true;
@@ -161,7 +158,6 @@ const verifyCode = async () => {
   }
 };
 
-// 禁用二次验证
 const handleDisable2FA = async () => {
   try {
     error.value = "";
@@ -173,7 +169,6 @@ const handleDisable2FA = async () => {
   }
 };
 
-// 检查状态
 const checkStatus = async () => {
   try {
     is2FAEnabled.value = await checkMFAStatus();

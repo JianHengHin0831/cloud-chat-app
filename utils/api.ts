@@ -2,14 +2,14 @@ import type { NitroFetchOptions, NitroFetchRequest } from "nitropack";
 import { auth } from "~/firebase/firebase.js";
 type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
 
-// 标准API响应结构
+// standard api response interface
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
-// 修改函数签名明确返回ApiResponse<T>
+// fetch api with authentication
 export const apiFetch = async <T>(
   request: NitroFetchRequest,
   options?: {
@@ -18,7 +18,6 @@ export const apiFetch = async <T>(
     params?: Record<string, string | number>;
   }
 ): Promise<ApiResponse<T>> => {
-  // 关键修改：返回Promise<ApiResponse<T>>而非Promise<T>
   const user = auth.currentUser;
   if (!user) {
     throw new Error("User not authenticated");
@@ -37,7 +36,6 @@ export const apiFetch = async <T>(
       query: options?.params,
     });
 
-    // 确保返回结构符合ApiResponse
     return {
       success: response.success ?? true,
       data: response.data,
@@ -51,9 +49,3 @@ export const apiFetch = async <T>(
     };
   }
 };
-
-// const user = auth.currentUser;
-//   if (!user) {
-//     throw new Error("User not authenticated");
-//   }
-//   const token = await user.getIdToken();

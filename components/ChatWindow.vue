@@ -246,7 +246,6 @@
                     : ''
                 "
               >
-                <!-- Text Message -->
                 <p v-if="msg.isDeleted" class="text-sm break-all break-words">
                   <span class="text-gray-500 italic">
                     This message has been deleted by
@@ -638,7 +637,7 @@
                 "
               >
                 <!-- Text Message -->
-                <!-- 已删除的消息 -->
+                <!-- deleted message -->
                 <p v-if="msg.isDeleted" class="text-sm break-all break-words">
                   <span class="text-gray-500 italic">
                     This message has been deleted by
@@ -875,7 +874,7 @@
           groupData?.isDisband || isMuted,
       }"
     >
-      <!-- 添加禁言提示 -->
+      <!-- mute prompt -->
       <div
         v-if="isMuted"
         class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 bg-opacity-50"
@@ -918,7 +917,7 @@
       </div>
 
       <!-- File Upload Area -->
-      <!-- 修改后的文件上传区域 -->
+      <!-- modified file upload area -->
       <div class="absolute bottom-full left-0 w-full" v-if="showFileUpload">
         <div
           class="p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center"
@@ -944,7 +943,7 @@
           />
         </div>
 
-        <!-- 改进的文件列表显示 -->
+        <!-- improved file list display -->
         <div
           v-if="filesToUpload.length > 0"
           class="mt-2 bg-white dark:bg-gray-800 border-gray-200 border-2 rounded-lg shadow p-3 max-h-40 overflow-y-auto"
@@ -967,8 +966,6 @@
           </div>
         </div>
       </div>
-
-      <!-- 顯示已選擇的文件名 -->
 
       <!-- Plus Button -->
       <button
@@ -1049,7 +1046,7 @@
       @close="closeFilePreview"
     />
 
-    <!-- 反应选择器弹窗 -->
+    <!-- Reaction selector pop-up window -->
     <div
       v-if="isReactionPickerVisible"
       class="reaction-picker-overlay"
@@ -1069,7 +1066,7 @@
       </div>
     </div>
 
-    <!-- 模态框或弹出框 -->
+    <!-- Modal box or pop-up box -->
     <div v-if="showReactionModal" class="reaction-modal">
       <div class="modal-content">
         <span class="close" @click="closeReactionModal">&times;</span>
@@ -1136,7 +1133,7 @@ const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value;
 };
 
-// 加載更多消息
+// load more messages
 const loadMoreMessages = async () => {
   if (props.selectedGroupId) {
     emit("loadMore", props.selectedGroupId);
@@ -1152,7 +1149,7 @@ import "emoji-mart-vue-fast/css/emoji-mart.css";
 let emojiIndex = new EmojiIndex(data);
 const emojisOutput = ref("");
 
-// 處理 emoji 選擇
+// handle emoji selection
 const showEmoji = (emoji) => {
   emojisOutput.value += emoji.native;
   newMessage.value += emoji.native;
@@ -1170,18 +1167,13 @@ const extractFileName = (url) => {
   }
 
   try {
-    // 解析 URL
     const urlObj = new URL(url);
-    const pathname = decodeURIComponent(urlObj.pathname); // 解码 URL，处理 %20, %2F 等
+    const pathname = decodeURIComponent(urlObj.pathname);
 
-    // Firebase Storage 的 URL 结构通常是 o/bucket/o/path%2Fto%2Ffile.ext
     const pathSegments = pathname.split("/");
 
-    // 文件名通常在路径的最后一部分
     const lastSegment = pathSegments[pathSegments.length - 1];
 
-    // Firebase Storage 的文件名是 "1743586892385-Final Year Project-Final Report_Template For Hard Bound.docx"
-    // 但 URL 可能会附带查询参数，需要去掉 `?alt=media&token=...`
     const cleanFileName = lastSegment.split("?")[0];
 
     const nameParts = cleanFileName.split("-");
@@ -1196,11 +1188,11 @@ const extractFileName = (url) => {
   }
 };
 
-// 切換文件上傳區域
+// toggle file upload area
 const toggleFileUpload = () => {
   showFileUpload.value = !showFileUpload.value;
   if (showFileUpload.value) {
-    showEmojiPicker.value = false; // 關閉 Emoji Picker
+    showEmojiPicker.value = false; // close emoji picker
   }
 };
 
@@ -1210,7 +1202,7 @@ import {
   getMimeType,
   getDecryptUrl,
 } from "~/utils/fileEncryptionHelper";
-// 添加预览状态
+
 const showFilePreview = ref(false);
 const previewFileUrl = ref("");
 const previewFileBlob = ref(null);
@@ -1223,10 +1215,8 @@ import {
   processPreloadQueue,
 } from "../utils/mediaCache";
 
-// 使用缓存管理器来跟踪媒体URL
 const mediaUrls = ref({});
 
-// 使用Intersection Observer实现懒加载
 const setupIntersectionObserver = () => {
   const observer = new IntersectionObserver(
     (entries) => {
@@ -1235,12 +1225,11 @@ const setupIntersectionObserver = () => {
           const mediaElement = entry.target;
           const originalUrl = mediaElement.dataset.originalUrl;
           if (originalUrl) {
-            // 尝试从缓存获取URL
             const cachedUrl = getCachedMediaUrl(originalUrl);
             if (cachedUrl) {
               mediaElement.src = cachedUrl;
             } else {
-              // 添加到预加载队列
+              // add to preload queue
               addToPreloadQueue(originalUrl, async () => {
                 const url = await getDecryptUrl(
                   originalUrl,
@@ -1271,12 +1260,10 @@ watch(
         typeof msg.messageContent === "string"
       ) {
         try {
-          // 先检查缓存
           const cachedUrl = getCachedMediaUrl(msg.messageContent);
           if (cachedUrl) {
             mediaUrls.value[msg.messageContent] = cachedUrl;
           } else {
-            // 添加到预加载队列
             addToPreloadQueue(msg.messageContent, async () => {
               const url = await getDecryptUrl(
                 msg.messageContent,
@@ -1292,27 +1279,23 @@ watch(
         }
       }
     }
-    // 处理预加载队列
     processPreloadQueue();
   },
   { immediate: true, deep: true }
 );
 
-// 修改打开预览的函数
+// open file preview function
 const openFilePreview = async (url, fileName) => {
   try {
-    loading.value = true; // 显示加载提示
+    loading.value = true;
 
-    // 获取文件类型
     const fileType = getFileType(fileName);
     const mimeType = getMimeType(fileType);
 
-    // 判断是否为Firebase Storage的URL
     if (url && url.includes("firebasestorage.googleapis.com")) {
       const user = auth.currentUser;
       if (user) {
         try {
-          // 尝试通过服务器API获取并解密文件
           const { fileUrl, decryptedBlob } = await fetchAndDecryptFile(
             url,
             user.uid,
@@ -1321,41 +1304,35 @@ const openFilePreview = async (url, fileName) => {
             true
           );
 
-          // 总是预览文件，不直接下载
           previewFileUrl.value = fileUrl;
           previewFileBlob.value = decryptedBlob;
           previewFileName.value = fileName;
           showFilePreview.value = true;
         } catch (error) {
-          console.error("文件预览失败:", error);
-          //alert("文件预览失败，请稍后重试或联系管理员");
+          console.error("File preview failed:", error);
         }
       } else {
-        // 用户未登录，直接显示原始URL
         previewFileUrl.value = url;
         previewFileName.value = fileName;
         showFilePreview.value = true;
       }
     } else {
-      // 非Firebase Storage URL，直接使用
       previewFileUrl.value = url;
       previewFileName.value = fileName;
       showFilePreview.value = true;
     }
   } catch (error) {
-    console.error("预览文件失败:", error);
-    alert("文件预览失败，请稍后重试");
+    console.error("File preview failed:", error);
+    alert("File preview failed, please try again later");
   } finally {
-    loading.value = false; // 隐藏加载提示
+    loading.value = false;
   }
 };
 
-// 关闭预览
 const closeFilePreview = () => {
   showFilePreview.value = false;
 };
 
-// 打開文件瀏覽器
 const openFileBrowser = () => {
   fileInput.value.click();
 };
@@ -1403,7 +1380,6 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 };
 
-// 移除文件
 const handleEnter = async (event) => {
   if (event.key === "Enter") {
     await handleSend();
@@ -1421,7 +1397,6 @@ const {
   getPendingItems,
 } = useOptimisticUpdates();
 
-// 在 computed 中合并待处理的消息
 const messagesWithPending = computed(() => {
   const pendingItems = getPendingItems(props.selectedGroupId);
   return [...pendingItems, ...messagesWithTimeMarkers.value].sort(
@@ -1429,10 +1404,8 @@ const messagesWithPending = computed(() => {
   );
 });
 
-// 用于跟踪提及的用户
 const mentionedUsers = ref([]);
 
-// 通知新消息
 const notifyNewMessage = async (groupId, senderName) => {
   await sendNotification({
     groupId: groupId,
@@ -1468,7 +1441,6 @@ const sendMessage = async () => {
   const messageContent = newMessage.value;
   newMessage.value = "";
 
-  // 记录发送消息尝试
   logEvent("send_message_attempt", {
     groupId: props.selectedGroupId,
     userId: props.userId,
@@ -1478,7 +1450,6 @@ const sendMessage = async () => {
     timestamp: new Date().toISOString(),
   });
 
-  // 创建乐观更新消息
   const { tempId, optimisticMessage } = optimisticSendMessage(
     props.selectedGroupId,
     {
@@ -1490,7 +1461,6 @@ const sendMessage = async () => {
   );
 
   try {
-    // 发送消息
     const result = await sendMessageUtils(props.selectedGroupId, {
       senderId: props.userId,
       messageContent,
@@ -1498,10 +1468,8 @@ const sendMessage = async () => {
       createdAt: Date.now(),
     });
 
-    // 确认消息发送成功
     confirmMessageSent(tempId, result);
 
-    // 发送通知
     if (mentionedUsers.value.length > 0) {
       await sendNotification({
         userIds: mentionedUsers.value,
@@ -1513,11 +1481,9 @@ const sendMessage = async () => {
         chatroomId: props.selectedGroupId,
         isSaveNotification: true,
       });
-      // 清空提及的用户列表
       mentionedUsers.value = [];
     }
 
-    // 记录发送消息成功
     const duration = Date.now() - startTime;
     logEvent("send_message_success", {
       groupId: props.selectedGroupId,
@@ -1543,7 +1509,6 @@ const sendMessage = async () => {
     console.error("Error sending message:", error);
     markMessageFailed(tempId);
 
-    // 记录发送消息失败
     logEvent("send_message_failure", {
       groupId: props.selectedGroupId,
       userId: props.userId,
@@ -1561,7 +1526,6 @@ const sendMessage = async () => {
   }
 };
 
-// 处理@提及
 const handleMention = (userId) => {
   if (!mentionedUsers.value.includes(userId)) {
     mentionedUsers.value.push(userId);
@@ -1572,13 +1536,10 @@ import { useScroll } from "@vueuse/core";
 import { getFileIconColor } from "~/utils/fileUtils";
 
 const { arrivedState } = useScroll(chatContent);
-// 存储所有 menu 的 ref，格式：{ [msg.id]: HTMLElement }
 const menuRefs = ref({});
 
-// 存储所有 shouldFlip 状态，格式：{ [msg.id]: boolean }
 const shouldFlipMap = ref({});
 
-// 动态设置 ref
 const setMenuRef = (el, msgId) => {
   if (el) {
     menuRefs.value[msgId] = el;
@@ -1652,7 +1613,6 @@ const uploadFiles = async () => {
 
       const result = await response.json();
 
-      // 上传后写入聊天
       updateFileProgress(tempId, 90);
       if (result.fileDetails && result.fileDetails.length > 0) {
         const fileDetail = result.fileDetails[0];
@@ -1683,7 +1643,7 @@ const uploadFiles = async () => {
       });
     });
 
-    // 执行所有上传任务
+    // Perform all upload tasks
     await Promise.all(uploadTasks);
 
     await logEvent("batch_file_upload_complete", {
@@ -1693,7 +1653,7 @@ const uploadFiles = async () => {
       totalDuration: Date.now() - startTime,
     });
   } catch (error) {
-    console.error("文件上传处理失败:", error);
+    console.error("File upload processing failed:", error);
     await logError(error, {
       userId,
       chatroomId: props.selectedGroupId,
@@ -1713,19 +1673,19 @@ const toggleEmojiPicker = () => {
   filesToUpload.value = [];
 };
 
-// 獲取用戶頭像
+// Get user profile picture
 const getUserAvatar = (senderId) => {
   const member = props.membersData.find((member) => member.id === senderId);
   return member ? member.avatarUrl : "/images/group.png";
 };
 
-// 獲取用戶名
+// Get username
 const getUserName = (senderId) => {
   const member = props.membersData.find((member) => member.id === senderId);
   return member ? member.username : "User";
 };
 
-// 格式化時間
+// Format time
 const formatTime = (timestamp) => {
   if (!timestamp) return "";
 
@@ -1733,7 +1693,7 @@ const formatTime = (timestamp) => {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
-// 處理滾動事件
+// Handle scrolling events
 const handleScroll = async (event) => {
   const { scrollTop } = event.target;
   if (scrollTop === 0 && props.hasMoreMessages) {
@@ -1824,10 +1784,8 @@ const scrollToBottom = () => {
 
 const isAtBottom = ref(true);
 
-// 计算属性控制按钮显示
 const showScrollButton = computed(() => !arrivedState.bottom);
 
-// 确保组件挂载时设置初始状态
 onMounted(() => {
   if (chatContent.value) {
     isAtBottom.value = true;
@@ -1946,8 +1904,6 @@ const selectMention = (member) => {
   });
 };
 
-// Format message content to highlight mentions
-
 // Close mention dropdown when clicking outside
 onMounted(() => {
   document.addEventListener("click", (event) => {
@@ -1993,7 +1949,6 @@ const formatOnlineUsers = (users) => {
   }
 };
 
-// 防抖更新（500ms）
 const updateTypingStatus = debounce((isTyping) => {
   if (!props.selectedGroupId || !auth.currentUser?.uid) return;
   set(typingRef.value, {
@@ -2001,8 +1956,6 @@ const updateTypingStatus = debounce((isTyping) => {
     timestamp: Date.now(),
   });
 }, 500);
-
-// 监听其他人的输入状态
 const otherTypingUsers = ref([]);
 onMounted(() => {
   const groupTypingRef = dbRef(db, `chatrooms/${props.selectedGroupId}/typing`);
@@ -2022,14 +1975,12 @@ onMounted(() => {
   });
 });
 
-// 清理状态
 onUnmounted(() => {
   if (props.selectedGroupId && auth.currentUser?.uid) {
     set(typingRef.value, { isTyping: false });
   }
 });
 
-// 反应相关状态
 const isReactionPickerVisible = ref(false);
 const selectedMessage = ref(null);
 const availableEmojis = ref([
@@ -2047,19 +1998,16 @@ const availableEmojis = ref([
   { id: "12", emoji: "💯" },
 ]);
 
-// 显示反应选择器
 const showReactionPicker = (message) => {
   selectedMessage.value = message;
   isReactionPickerVisible.value = true;
 };
 
-// 关闭反应选择器
 const closeReactionPicker = () => {
   isReactionPickerVisible.value = false;
   selectedMessage.value = null;
 };
 
-// 添加反应
 const addReaction = async (emojiId) => {
   if (!selectedMessage.value) return;
 
@@ -2071,29 +2019,24 @@ const addReaction = async (emojiId) => {
     );
     closeReactionPicker();
   } catch (error) {
-    console.error("添加反应失败:", error);
-    // 可以添加错误提示
+    console.error("Failed to add reaction:", error);
   }
 };
 
-// 获取表情符号
 const getEmojiById = (emojiId) => {
   const emoji = availableEmojis.value.find((e) => e.id === emojiId);
   return emoji ? emoji.emoji : "❓";
 };
 
-// 新添加的反应详情状态
 const showReactionModal = ref(false);
 const reactionDetails = ref({});
 
-// 显示反应详情
 const showReactionDetails = (msgId) => {
   const currentReaction = props.messages.find((msg) => msg.id === msgId);
   reactionDetails.value = currentReaction.reactions;
   showReactionModal.value = true;
 };
 
-// 关闭反应详情
 const closeReactionModal = () => {
   showReactionModal.value = false;
   reactionDetails.value = {};
@@ -2113,7 +2056,7 @@ const matchedMessages = computed(() => {
           ?.toLowerCase()
           .includes(searchQuery.value.toLowerCase())
     )
-    .reverse(); // 反转顺序以显示最新的消息在前面
+    .reverse();
 });
 
 const getHighlightedContent = (message) => {
@@ -2151,11 +2094,9 @@ const scrollToMessage = (message) => {
       top: elementTop - chatContent.value.clientHeight / 2,
       behavior: "smooth",
     });
-    // 高亮效果
     messageEl.classList.add("bg-yellow-100");
     setTimeout(() => messageEl.classList.remove("bg-yellow-100"), 1000);
   }
-  // 关闭搜索面板
   showSearch.value = false;
 };
 
@@ -2205,11 +2146,8 @@ const handlePinMessage = async (messageId, isPinned) => {
 };
 
 const canDeleteMessage = (msg) => {
-  // 管理员和版主可以删除所有消息
   if (msg.isDeleted) return false;
   if (isModeratorOrAdmin.value) return true;
-
-  // 用户只能删除自己5分钟内的消息
   if (msg.senderId === props.userId) {
     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
     return msg.createdAt > fiveMinutesAgo;
@@ -2243,44 +2181,30 @@ watch(
     if (updateLock) return;
     updateLock = true;
 
-    // 找出新激活的flag（从false变为true的）
     const activatedIndex = newValues.findIndex(
       (val, i) => val === true && oldValues[i] === false
     );
 
-    // 找出被取消的flag（从true变为false的）
     const deactivatedIndex = oldValues.findIndex(
       (val, i) => val === true && newValues[i] === false
     );
 
-    // 情况1: 有新激活的flag
     if (activatedIndex !== -1) {
-      // 重置其他所有flag（除了新激活的和索引0）
       allFlags.forEach((flag, i) => {
         if (i !== activatedIndex && i !== 0) {
           flag.value = false;
         }
       });
 
-      // 如果激活的不是索引0，则清空selectedMessage
       if (activatedIndex !== 0) {
         selectedMessageForMenu.value = null;
       }
-    }
-    // 情况2: 有flag被取消且没有新激活的
-    else if (deactivatedIndex !== -1) {
-      // 不需要特别处理，因为这是用户主动取消
-    }
-    // 情况3: selectedMessage变为null（索引0从非null变为null）
-    else if (oldValues[0] !== null && newValues[0] === null) {
-      // 重置所有其他flag
+    } else if (deactivatedIndex !== -1) {
+    } else if (oldValues[0] !== null && newValues[0] === null) {
       allFlags.forEach((flag, i) => {
         if (i !== 0) flag.value = false;
       });
-    }
-    // 情况4: selectedMessage从null变为非null（索引0从null变为非null）
-    else if (oldValues[0] === null && newValues[0] !== null) {
-      // 重置所有其他flag
+    } else if (oldValues[0] === null && newValues[0] !== null) {
       allFlags.forEach((flag, i) => {
         if (i !== 0) flag.value = false;
       });
@@ -2390,15 +2314,14 @@ video {
   color: #dc2626;
 }
 
-/* 确保拖放区域在正确的位置 */
 .absolute.bottom-full {
   z-index: 10;
   margin-bottom: 0.5rem;
 }
 
 .drop-zone.active {
-  background-color: #ebf8ff; /* 浅蓝色背景作为反馈 */
-  border-color: #4299e1; /* 蓝色边框 */
+  background-color: #ebf8ff;
+  border-color: #4299e1;
 }
 
 /* Add styles for mention dropdown */
@@ -2502,7 +2425,6 @@ video {
 }
 
 .reaction-modal {
-  /* 模态框样式 */
   position: fixed;
   top: 0;
   left: 0;

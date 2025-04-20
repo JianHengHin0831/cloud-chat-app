@@ -68,7 +68,7 @@ const props = defineProps({
 
 const formattedFiles = ref([]);
 
-// 格式化文件时间
+// Format file time
 const formatFilesTime = async () => {
   const formatted = await Promise.all(
     props.files.map(async (file) => ({
@@ -79,6 +79,6 @@ const formatFilesTime = async () => {
   formattedFiles.value = formatted;
 };
 
-// 监听文件变化
+// Listen to file changes
 watch(() => props.files, formatFilesTime, { immediate: true });
 </script>

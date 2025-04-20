@@ -1,26 +1,25 @@
 import { ref } from "vue";
 
-// 存储本地临时消息的 Map
+// store local temporary messages
 const pendingMessages = ref(new Map());
 const pendingFiles = ref(new Map());
 
 export const useOptimisticUpdates = () => {
-  // 生成临时ID
+  // generate temporary id
   const generateTempId = () =>
     `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // 乐观更新发送消息
+  // optimistic update for sending message
   const optimisticSendMessage = (groupId: string, messageData: any) => {
     const tempId = generateTempId();
     const optimisticMessage = {
       id: tempId,
       ...messageData,
-      status: "pending", // 用于UI显示发送状态
+      status: "pending",
       createdAt: Date.now(),
       isPending: true,
     };
 
-    // 存储到临时Map
     pendingMessages.value.set(tempId, optimisticMessage);
 
     return {
@@ -29,13 +28,13 @@ export const useOptimisticUpdates = () => {
     };
   };
 
-  // 确认消息发送成功
+  // confirm message sent successfully
   const confirmMessageSent = (tempId: string, serverMessage: any) => {
     pendingMessages.value.delete(tempId);
     return serverMessage;
   };
 
-  // 标记消息发送失败
+  // mark message as failed
   const markMessageFailed = (tempId: string) => {
     const message = pendingMessages.value.get(tempId);
     if (message) {
@@ -44,7 +43,7 @@ export const useOptimisticUpdates = () => {
     }
   };
 
-  // 乐观更新文件上传
+  // optimistic update for file upload
   const optimisticFileUpload = (
     groupId: string,
     file: File,
@@ -54,7 +53,6 @@ export const useOptimisticUpdates = () => {
     const optimisticFile = {
       id: tempId,
       ...messageData,
-
       file,
       status: "uploading",
       progress: 0,
@@ -70,7 +68,7 @@ export const useOptimisticUpdates = () => {
     };
   };
 
-  // 更新文件上传进度
+  // update file upload progress
   const updateFileProgress = (tempId: string, progress: number) => {
     const file = pendingFiles.value.get(tempId);
     if (file) {
@@ -79,13 +77,13 @@ export const useOptimisticUpdates = () => {
     }
   };
 
-  // 确认文件上传成功
+  // confirm file upload success
   const confirmFileUploaded = (tempId: string, serverMessage: any) => {
     pendingFiles.value.delete(tempId);
     return serverMessage;
   };
 
-  // 标记文件上传失败
+  // mark file upload as failed
   const markFileUploadFailed = (tempId: string) => {
     const file = pendingFiles.value.get(tempId);
     if (file) {
@@ -94,7 +92,7 @@ export const useOptimisticUpdates = () => {
     }
   };
 
-  // 获取所有待处理的消息和文件
+  // get all pending messages and files
   const getPendingItems = (groupId: string) => {
     const messages = Array.from(pendingMessages.value.values()).filter(
       (msg) => msg.groupId === groupId

@@ -123,24 +123,22 @@
 <script setup>
 import { ref } from "vue";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "~/firebase/firebase.js"; // 确保路径正确
+import { auth } from "~/firebase/firebase.js";
 
 const email = ref("");
 const error = ref("");
 const success = ref(false);
 const isLoading = ref(false);
 
-// 处理忘记密码逻辑
+//handle password reset request
 const handleForgotPassword = async () => {
   try {
     isLoading.value = true;
     error.value = "";
     success.value = false;
 
-    // 发送密码重置邮件
     await sendPasswordResetEmail(auth, email.value);
 
-    // 显示成功消息
     success.value = true;
   } catch (err) {
     console.error("Error sending password reset email:", err);

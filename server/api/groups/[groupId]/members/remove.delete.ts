@@ -13,13 +13,11 @@ export default defineEventHandler(async (event) => {
   const { memberId } = await readBody(event);
   const authUser = await verifyAuth(event);
 
-  // 获取双方角色
   const [requesterRole, targetRole] = await Promise.all([
     getRole(groupId, authUser.uid),
     getRole(groupId, memberId),
   ]);
 
-  // 权限验证
   const canRemove =
     requesterRole === "admin" ||
     (requesterRole === "moderator" && targetRole === "user");

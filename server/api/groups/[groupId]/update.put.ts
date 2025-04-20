@@ -13,7 +13,6 @@ export default defineEventHandler(async (event) => {
   const { name, description, chatType } = await readBody(event);
   const authUser = await verifyAuth(event);
 
-  // 验证管理员权限
   const role = await getRole(groupId, authUser.uid);
   if (role !== "admin") {
     throw createError({

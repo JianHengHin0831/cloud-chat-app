@@ -1,17 +1,7 @@
 import { auth, db } from "~/firebase/firebase";
 import { ref as dbRef, get } from "firebase/database";
 
-/**
- * 发送通知（支持群组或特定用户）
- * @param params
- *   - userIds: 发送给特定用户（数组）
- *   - groupId: 发送给整个群组
- *   - title: 通知标题
- *   - body: 通知内容
- *   - chatroomId: 关联的聊天室ID
- *   - isSaveNotification: 是否保存到数据库（默认true）
- *   - excludeMuted: 是否排除设置了静音的用户（默认true）
- */
+// send notification to users or group
 export const sendNotification = async (params: {
   userIds?: string[];
   groupId?: string;
@@ -25,7 +15,6 @@ export const sendNotification = async (params: {
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated");
 
-    // 验证必要参数
     if (
       (!params.userIds && !params.groupId) ||
       !params.title ||
@@ -37,14 +26,13 @@ export const sendNotification = async (params: {
       );
     }
 
-    // 如果是群组通知，先获取所有成员ID
     let targetUserIds = params.userIds || [];
     if (params.groupId) {
       const groupMembers = await getGroupMembers(
         params.groupId,
         params.excludeMuted ?? true
       );
-      targetUserIds = Array.from(new Set([...targetUserIds, ...groupMembers])); // 合并并去重
+      targetUserIds = Array.from(new Set([...targetUserIds, ...groupMembers]));
     }
 
     if (targetUserIds.length === 0) {
@@ -76,9 +64,7 @@ export const sendNotification = async (params: {
   }
 };
 
-/**
- * 获取群组成员ID列表
- */
+// get group member ids
 const getGroupMembers = async (
   groupId: string,
   excludeMuted: boolean
@@ -95,7 +81,6 @@ const getGroupMembers = async (
     const userId = childSnapshot.key;
     const userData = childSnapshot.val();
 
-    // 如果排除静音用户且用户设置了静音，则跳过
     if (excludeMuted && userData.isMuted) return;
 
     const userCheck = async () => {
@@ -103,13 +88,11 @@ const getGroupMembers = async (
         const userRef = dbRef(db, `users/${userId}/isMuted`);
         const userSnapshot = await get(userRef);
 
-        // Skip if globally muted (highest priority)
         if (userSnapshot.exists() && userSnapshot.val() === true) return;
 
         members.push(userId);
       } catch (error) {
         console.error(`Error checking mute status for user ${userId}:`, error);
-        // Default to including user if check fails
         members.push(userId);
       }
     };

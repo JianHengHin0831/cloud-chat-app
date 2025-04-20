@@ -124,7 +124,7 @@ const form = ref({
 
 const showSuccessMessage = ref(false);
 const showErrorMessage = ref(false);
-const isProcessing = ref(false); // ✅ loading 状态
+const isProcessing = ref(false);
 
 const notifyGroupUpdate = async (groupId) => {
   await sendNotification({
@@ -133,7 +133,7 @@ const notifyGroupUpdate = async (groupId) => {
     body: "Group information has been updated",
     chatroomId: groupId,
     isSaveNotification: true,
-    excludeMuted: true, // 默认排除设置了静音的用户
+    excludeMuted: true,
   });
 };
 

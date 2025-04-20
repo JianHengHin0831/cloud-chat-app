@@ -1,20 +1,15 @@
 import { db, auth } from "~/firebase/firebase";
 import { ref as dbRef, push, get } from "firebase/database";
 
-/**
- * Write an activity log entry
- * @param chatroomId - ID of the chatroom
- * @param userId - ID of the user who performed the action
- * @param details - Description of the activity
- * @returns Promise<void>
- */
+// activity log entry interface
 interface ActivityLog {
   userId: string;
   details: string;
   timestamp: number;
-  id: string; // Added for convenience
+  id: string;
 }
 
+// write activity log entry
 export const writeActivityLog = async (
   chatroomId: string,
   userId: string,
@@ -38,6 +33,7 @@ export const writeActivityLog = async (
   }
 };
 
+// read activity logs for chatroom
 export const readActivityLogs = async (
   chatroomId: string
 ): Promise<ActivityLog[]> => {
@@ -57,7 +53,6 @@ export const readActivityLogs = async (
       });
     });
 
-    // Sort by timestamp (newest first)
     return logs.sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
     console.error("Error reading activity logs:", error);

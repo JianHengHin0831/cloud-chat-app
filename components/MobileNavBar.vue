@@ -101,7 +101,6 @@ const hasUnreadMessages = computed(() =>
 let unsubscribeNotifications = null;
 
 const route = useRoute();
-// 检查当前页面是否激活
 const isActivePage = (path) => route.path === path;
 
 onMounted(() => {

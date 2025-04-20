@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const { groupId } = params;
   const authUser = await verifyAuth(event);
 
-  // 验证是否为本人操作
+  // Verify that it is my operation
   const memberRef = adminDb.ref(`chatroom_users/${groupId}/${authUser.uid}`);
   const memberSnap = await memberRef.get();
 
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // 群主不能直接退出（需先转让或解散）
+  // The group owner cannot withdraw directly (replace or disband first)
   if (memberSnap.val().role === "admin") {
     throw createError({
       statusCode: 400,

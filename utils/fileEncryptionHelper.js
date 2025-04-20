@@ -1,7 +1,9 @@
-// 辅助函数：根据文件名获取MIME类型
+// get type from folder name
 import { auth } from "~/firebase/firebase.js";
 import { fetchAndDecryptFile } from "~/services/chatroom-service";
+import { getFileName } from "./fileUtils";
 
+// get mime type from file type
 export const getMimeType = (fileType) => {
   const mimeTypes = {
     image: "image/*",
@@ -21,24 +23,20 @@ export const getMimeType = (fileType) => {
   return mimeTypes[fileType] || "application/octet-stream";
 };
 
-// 添加 getFileType 函数，根据文件名获取文件类型
+// get file type from file name
 export const getFileType = (fileName) => {
   if (!fileName) return "file";
 
-  // 获取文件扩展名
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
-  // 图片类型
   if (["jpg", "jpeg", "png", "gif", "bmp", "webp", "svg"].includes(extension)) {
     return "image";
   }
 
-  // 视频类型
   if (["mp4", "webm", "avi", "mov", "flv", "mkv"].includes(extension)) {
     return "video";
   }
 
-  // 文档类型
   if (["pdf"].includes(extension)) {
     return "pdf";
   }
@@ -55,7 +53,6 @@ export const getFileType = (fileName) => {
     return "ppt";
   }
 
-  // 代码文件类型
   if (
     ["js", "ts", "java", "py", "cpp", "c", "html", "css", "json"].includes(
       extension
@@ -64,29 +61,23 @@ export const getFileType = (fileName) => {
     return "code";
   }
 
-  // 文本文件类型
   if (["txt", "md", "rtf"].includes(extension)) {
     return "text";
   }
 
-  // 其他文件类型
   return "file";
 };
 
+// get decrypted url for file preview
 export const getDecryptUrl = async (url, fileName, groupId) => {
   try {
-    //loading.value = true; // 显示加载提示
-
-    // 获取文件类型
     const fileType = getFileType(fileName);
     const mimeType = getMimeType(fileType);
 
-    // 判断是否为Firebase Storage的URL
     if (url && url.includes("firebasestorage.googleapis.com")) {
       const user = auth.currentUser;
       if (user) {
         try {
-          // 尝试通过服务器API获取并解密文件
           const decryptedUrl = await fetchAndDecryptFile(
             url,
             user.uid,
@@ -94,11 +85,9 @@ export const getDecryptUrl = async (url, fileName, groupId) => {
             mimeType
           );
 
-          // 总是预览文件，不直接下载
           return decryptedUrl;
         } catch (error) {
-          console.error("文件预览失败:", error);
-          // alert("文件预览失败，请稍后重试或联系管理员");
+          console.error("file preview failed:", error);
         }
       } else {
         return url;
@@ -107,13 +96,12 @@ export const getDecryptUrl = async (url, fileName, groupId) => {
       return url;
     }
   } catch (error) {
-    console.error("预览文件失败:", error);
-    //alert("文件预览失败，请稍后重试");
+    console.error("file preview failed:", error);
   } finally {
-    //loading.value = false; // 隐藏加载提示
   }
 };
 
+// download file with decryption
 export const downloadFile = async (url, groupId) => {
   const filename = getFileName(url);
   const decryptUrl = await getDecryptUrl(url, filename, groupId);

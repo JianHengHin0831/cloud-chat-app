@@ -1,10 +1,8 @@
 import { createClient } from "redis";
 
-// 简化的配置
 const redisEnabled = process.env.REDIS_ENABLED === "true";
 const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
 
-// Redis 客户端
 let client = null;
 if (redisEnabled) {
   try {
@@ -26,7 +24,6 @@ if (redisEnabled) {
   }
 }
 
-// 内存缓存
 const memoryCache = new Map();
 const memoryCacheExpiry = new Map();
 const KEY_PREFIX = "cloudtalk:";
@@ -39,7 +36,6 @@ export default defineEventHandler(async (event) => {
 
     switch (action) {
       case "get":
-        // 尝试从 Redis 获取
         if (client?.isReady) {
           try {
             const value = await client.get(fullKey);
@@ -49,7 +45,6 @@ export default defineEventHandler(async (event) => {
           }
         }
 
-        // 从内存缓存获取
         if (memoryCache.has(fullKey)) {
           const expiry = memoryCacheExpiry.get(fullKey) || 0;
           if (expiry > Date.now()) {
@@ -62,7 +57,6 @@ export default defineEventHandler(async (event) => {
         return { data: null };
 
       case "set":
-        // 存入 Redis
         if (client?.isReady) {
           try {
             await client.set(fullKey, JSON.stringify(data), { EX: ttl || 300 });
@@ -71,14 +65,12 @@ export default defineEventHandler(async (event) => {
           }
         }
 
-        // 存入内存缓存
         memoryCache.set(fullKey, data);
         memoryCacheExpiry.set(fullKey, Date.now() + (ttl || 300) * 1000);
 
         return { success: true };
 
       case "delete":
-        // 从 Redis 删除
         if (client?.isReady) {
           try {
             if (key.includes("*")) {
@@ -92,7 +84,6 @@ export default defineEventHandler(async (event) => {
           }
         }
 
-        // 从内存缓存删除
         if (key.includes("*")) {
           const regex = new RegExp(fullKey.replace(/\*/g, ".*"));
           for (const k of memoryCache.keys()) {

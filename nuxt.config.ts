@@ -12,9 +12,6 @@ export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   runtimeConfig: {
     apiBase: process.env.NUXT_API_BASE,
-    // redisHost: process.env.REDIS_HOST,
-    // redisEnabled: process.env.REDIS_ENABLED || "false",
-    // redisUrl: process.env.REDIS_URL || "redis://localhost:6379",
     firebase: {
       serviceAccount: {
         type: process.env.FIREBASE_TYPE,
@@ -31,7 +28,6 @@ export default defineNuxtConfig({
         universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN,
       },
     },
-    // 公共密钥，在客户端和服务器端都可用
     public: {
       baseEncryptionKey: process.env.NUXT_PUBLIC_BASE_ENCRYPTION_KEY,
     },
@@ -43,10 +39,24 @@ export default defineNuxtConfig({
         "Cross-Origin-Opener-Policy": "unsafe-none",
       },
     },
+    // optimizeDeps: {
+    //   include: [
+    //     "google-gax",
+    //     "@grpc/proto-loader",
+    //     "google-auth-library",
+    //     "protobufjs",
+    //     "winston-transport",
+    //     "firebase-admin/app",
+    //   ],
+    //   esbuildOptions: {
+    //     define: {
+    //       global: "globalThis",
+    //     },
+    //   },
+    // },
     build: {
       rollupOptions: {
         onwarn(warning, warn) {
-          // 忽略特定警告
           if (
             warning.code === "THIS_IS_UNDEFINED" &&
             warning.id?.includes("@opentelemetry/api")
@@ -57,31 +67,42 @@ export default defineNuxtConfig({
         },
       },
     },
+    // define: {
+    //   "process.env.GRPC_SSL_CIPHER_SUITES": JSON.stringify("HIGH+ECDSA"),
+    //   "process.env.GRPC_DNS_RESOLVER": JSON.stringify("native"),
+    //   "process.env.GRPC_ENABLE_FORK_SUPPORT": JSON.stringify("1"),
+    //   __dirname: JSON.stringify(__dirname),
+    // },
   },
   nitro: {
-    routeRules: {
-      "/api/**": {
-        cors: true,
-      },
-      "/login": {
-        headers: {
-          "Cross-Origin-Embedder-Policy": "unsafe-none",
-        },
-      },
-    },
     preset: "firebase",
     firebase: {
       gen: 2,
       nodeVersion: "22",
     },
-    output: {
-      dir: ".output",
-      serverDir: ".output/server",
-      publicDir: ".output/public",
-    },
-    experimental: {
-      asyncContext: true,
-    },
+    // externals: {
+    //   inline: [
+    //     "google-gax",
+    //     "@grpc/proto-loader",
+    //     "google-auth-library",
+    //     "protobufjs",
+    //     "firebase-admin",
+    //     "firebase-admin/logging",
+    //     "winston-transport",
+    //     "@google-cloud/logging-winston",
+    //   ],
+    // },
+    // esbuild: {
+    //   options: {
+    //     define: {
+    //       "process.env.GRPC_SSL_CIPHER_SUITES": JSON.stringify("HIGH+ECDSA"),
+    //       "process.env.GRPC_DNS_RESOLVER": JSON.stringify("native"),
+    //       "process.env.GRPC_ENABLE_FORK_SUPPORT": JSON.stringify("1"),
+    //       __dirname: JSON.stringify(__dirname),
+    //       legalComments: "none",
+    //     },
+    //   },
+    // },
   },
   modules: ["@nuxtjs/tailwindcss", "nuxt-vuefire", "@pinia/nuxt"],
   // @ts-ignore
@@ -97,11 +118,21 @@ export default defineNuxtConfig({
     },
   },
   tailwindcss: {
-    configPath: "~/tailwind.config.ts", // 自定義 Tailwind 配置文件路徑
-    exposeConfig: true, // 將 Tailwind 配置暴露給客戶端
+    configPath: "~/tailwind.config.ts",
+    exposeConfig: true,
   },
   build: {
     transpile: ["emoji-mart-vue-fast", "@heroicons/vue"],
+    //   "@google-cloud/logging",
+    //   "google-gax",
+    //   "protobufjs",
+    //   "@grpc/proto-loader",
+    //   "google-auth-library",
+    //   "firebase-admin",
+    //   "firebase-admin/app",
+    //   "firebase-admin/logging",
+    //   "winston-transport",
+    //   "@google-cloud/logging-winston",
   },
   routeRules: {
     "/login": {

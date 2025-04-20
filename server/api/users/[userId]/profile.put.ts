@@ -1,45 +1,35 @@
 import { verifyAuth } from "~/server/utils/auth";
 import { adminDb } from "~/server/utils/firebase-admin";
+import { getRouterParam } from "h3";
 
 export default defineEventHandler(async (event) => {
-  const params = event.context.params;
-  if (!params?.userId) {
-    throw createError({
-      statusCode: 400,
-      message: "Missing user ID parameter",
-    });
-  }
-  const { userId } = params;
-  const profileData = await readBody(event);
-  const authUser = await verifyAuth(event);
+  const userId = getRouterParam(event, "userId");
+  const user = event.context.user;
 
-  // 只能修改自己的资料
-  if (authUser.uid !== userId) {
+  if (userId !== user.uid) {
     throw createError({
       statusCode: 403,
-      message: "Can only update own profile",
+      message: "You can only update your own profile",
     });
   }
 
-  // 构造更新数据
-  const updates = {
-    username: profileData.username,
-    advancedSettings: {
-      bio: profileData.advancedSettings.bio,
-      status: profileData.advancedSettings.status,
-      isOnline: profileData.advancedSettings.isOnline,
-      isLight: profileData.advancedSettings.isLight,
-      showExactTime: profileData.advancedSettings.showExactTime,
-      fontSize: profileData.advancedSettings.fontSize,
-      activityVisibility: profileData.advancedSettings.activityVisibility,
-      showEmail: profileData.advancedSettings.showEmail,
-      lastUpdated: { ".sv": "timestamp" },
-    },
+  const body = await readBody(event);
+  const { displayName, photoURL, bio } = body;
+
+  const updateData = {
+    displayName,
+    photoURL,
+    bio,
+    updatedAt: Date.now(),
   };
 
-  await adminDb.ref(`users/${userId}/username`).set(updates.username);
-  await adminDb
-    .ref(`users/${userId}/advancedSettings`)
-    .set(updates.advancedSettings);
-  return { success: true };
+  try {
+    await adminAuth.updateUser(user.uid, updateData);
+    return { success: true };
+  } catch (error) {
+    throw createError({
+      statusCode: 500,
+      message: "Failed to update profile",
+    });
+  }
 });

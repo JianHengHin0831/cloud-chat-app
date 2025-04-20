@@ -5,7 +5,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
       <h2 class="text-xl font-semibold mb-4 dark:text-white">Add Member</h2>
 
-      <!-- 搜索栏 -->
+      <!-- Search bar -->
       <input
         v-model="searchQuery"
         type="text"
@@ -13,7 +13,7 @@
         class="w-full p-2 border dark:border-gray-600 rounded-lg mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
       />
 
-      <!-- 匹配的用户列表 -->
+      <!-- List of matching users -->
       <ul v-if="filteredUsers.length > 0">
         <li
           v-for="user in filteredUsers"
@@ -54,7 +54,7 @@
         No users found
       </div>
 
-      <!-- 待处理用户列表 -->
+      <!-- Pending user list -->
       <div v-if="pendingUsers.length > 0" class="mt-4">
         <h3 class="text-lg font-semibold mb-2 dark:text-white">
           Pending Users
@@ -117,7 +117,7 @@
         </ul>
       </div>
 
-      <!-- 已邀请用户列表 -->
+      <!-- List of invited users -->
       <div v-show="pendingInvitedUsers.length > 0" class="mt-4">
         <h3 class="text-lg font-semibold mb-2 dark:text-white">
           Invited Users
@@ -148,7 +148,7 @@
         </ul>
       </div>
 
-      <!-- 关闭按钮 -->
+      <!-- Close button -->
       <button
         @click="$emit('close')"
         class="mt-4 w-full bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700"
@@ -158,7 +158,6 @@
     </div>
   </div>
 
-  <!-- 确认弹窗 -->
   <ConfirmAddMemberModal
     v-if="selectedUser"
     :user="selectedUser"
@@ -231,7 +230,6 @@ const fetchAllUsers = async () => {
 
     users.value = result;
 
-    // 记录用户列表获取成功
     const duration = Date.now() - startTime;
     logEvent("fetch_users_success", {
       groupId: props.groupId,
@@ -251,7 +249,6 @@ const fetchAllUsers = async () => {
     console.error("Failed to fetch users:", e);
     users.value = [];
 
-    // 记录用户列表获取失败
     logEvent("fetch_users_failure", {
       groupId: props.groupId,
       error: e.message,
@@ -301,7 +298,6 @@ const handleConfirmAddMember = async () => {
     users.value = users.value.filter((user) => user.id !== userId);
     setTimeout(() => (loadingStates.value[userId] = null), 1500);
 
-    // 发送通知给被添加的用户
     await sendNotification({
       userIds: [userId],
       title: "Group Invitation",
@@ -313,7 +309,6 @@ const handleConfirmAddMember = async () => {
       excludeMuted: true,
     });
 
-    // 记录活动日志
     await writeActivityLog(
       props.groupId,
       auth.currentUser?.uid,
@@ -322,7 +317,6 @@ const handleConfirmAddMember = async () => {
       } to the group`
     );
 
-    // 记录添加成员成功
     const duration = Date.now() - startTime;
     logEvent("add_member_success", {
       groupId: props.groupId,
@@ -342,7 +336,6 @@ const handleConfirmAddMember = async () => {
     loadingStates.value[userId] = "error";
     setTimeout(() => (loadingStates.value[userId] = null), 1500);
 
-    // 记录添加成员失败
     logEvent("add_member_failure", {
       groupId: props.groupId,
       userId,
@@ -365,7 +358,6 @@ const approvePendingUser = async (id) => {
     loadingStates.value[id] = "success";
     setTimeout(() => (loadingStates.value[id] = null), 1500);
 
-    // 发送通知给被批准的用户
     await sendNotification({
       userIds: [id],
       title: "Group Request Approved",
@@ -377,7 +369,6 @@ const approvePendingUser = async (id) => {
       excludeMuted: true,
     });
 
-    // 记录活动日志
     const pendingUser = props.pendingUsers.find((user) => user.id === id);
     await writeActivityLog(
       props.groupId,
@@ -387,7 +378,6 @@ const approvePendingUser = async (id) => {
       }'s request to join the group`
     );
 
-    // 记录批准待处理用户成功
     const duration = Date.now() - startTime;
     logEvent("approve_pending_user_success", {
       groupId: props.groupId,
@@ -407,7 +397,6 @@ const approvePendingUser = async (id) => {
     loadingStates.value[id] = "error";
     setTimeout(() => (loadingStates.value[id] = null), 1500);
 
-    // 记录批准待处理用户失败
     logEvent("approve_pending_user_failure", {
       groupId: props.groupId,
       userId: id,
@@ -430,7 +419,6 @@ const rejectPendingUser = async (id) => {
     loadingStates.value[id] = "success";
     setTimeout(() => (loadingStates.value[id] = null), 1500);
 
-    // 发送通知给被拒绝的用户
     await sendNotification({
       userIds: [id],
       title: "Group Request Rejected",
@@ -442,7 +430,6 @@ const rejectPendingUser = async (id) => {
       excludeMuted: true,
     });
 
-    // 记录活动日志
     const pendingUser = props.pendingUsers.find((user) => user.id === id);
     await writeActivityLog(
       props.groupId,
@@ -454,7 +441,6 @@ const rejectPendingUser = async (id) => {
       }'s request to join the group`
     );
 
-    // 记录拒绝待处理用户成功
     const duration = Date.now() - startTime;
     logEvent("reject_pending_user_success", {
       groupId: props.groupId,
@@ -474,7 +460,6 @@ const rejectPendingUser = async (id) => {
     loadingStates.value[id] = "error";
     setTimeout(() => (loadingStates.value[id] = null), 1500);
 
-    // 记录拒绝待处理用户失败
     logEvent("reject_pending_user_failure", {
       groupId: props.groupId,
       userId: id,

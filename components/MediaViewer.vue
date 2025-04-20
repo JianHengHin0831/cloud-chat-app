@@ -42,13 +42,13 @@
 const isOpen = ref(false);
 const mediaUrl = ref("");
 const mediaType = ref("");
-const isZoomed = ref(false); // 用于控制图片是否放大
+const isZoomed = ref(false);
 
 const open = (url, type) => {
   mediaUrl.value = url;
   mediaType.value = type;
   isOpen.value = true;
-  isZoomed.value = false; // 每次打开时重置缩放状态
+  isZoomed.value = false;
 };
 
 const close = () => {

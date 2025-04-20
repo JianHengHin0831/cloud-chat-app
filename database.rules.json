@@ -1,29 +1,143 @@
 {
   "rules": {
     "chatroom_users": {
-      ".indexOn": ["chatroomId_role", "userId"],
       ".read": "auth != null",
-      ".write": "auth != null"
-    },
-    "users": {
-      "$uid": {
-        ".read": "auth != null && auth.uid == $uid",
-        ".write": "auth != null && auth.uid == $uid"
-      }
-    },
-    "chatrooms": {
+      ".indexOn": ["userId", "chatroomId_role", "chatroomId"],
       "$chatroomId": {
         ".read": "auth != null",
         ".write": "auth != null",
-        "creator": {
-          ".validate": "newData.val() == auth.uid"
+        "$userId": {
+          ".validate": "auth != null ",
+          ".read": "auth != null",
+          ".write": "auth != null",
+          ".indexOn": ["chatroomId"]
+        }
+      }
+    },
+    "user_chatrooms": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "$chatroomId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "users": {
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        "email": {
+          ".read": "auth != null && auth.uid == $uid"
+        },
+        "invitations": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "privateData": {
+          ".read": "auth != null && auth.uid == $uid"
+        },
+        "status": {
+          ".read": "auth != null",
+          ".write": "auth.uid == $uid",
+          ".indexOn": ["state", "lastActive"]
+        },
+        "keys": {
+          ".read": "$uid === auth.uid",
+          ".write": "$uid === auth.uid",
+          "privatekey": {
+            ".read": "$uid === auth.uid",
+            ".write": "$uid === auth.uid"
+          }
+        },
+
+        "encryption_keys": {
+          ".read": "$uid === auth.uid",
+          ".write": "$uid === auth.uid"
+        },
+
+        "ratchets": {
+          ".read": "$uid === auth.uid",
+          ".write": "$uid === auth.uid"
+        }
+      }
+    },
+    "chatrooms": {
+      ".indexOn": ["chatType", "createdAt"],
+      ".read": true,
+      "$chatroomId": {
+        ".read": "auth != null && root.child('chatroom_users').child($chatroomId).child(auth.uid).exists()",
+        ".write": "auth != null && root.child('chatroom_users').child($chatroomId).child(auth.uid).exists()",
+
+        "pending": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "pendingInvitations": {
+          ".read": "auth != null",
+          ".write": "auth != null"
         },
         "createdAt": {
           ".validate": "newData.isNumber() || newData.val() == now"
         },
-        "members": {
-          "$uid": {
-            ".validate": "auth != null"
+        "typing": {
+          ".read": true,
+          ".write": true
+        },
+        "messages": {
+          ".read": "auth != null && root.child('chatroom_users').child($chatroomId).child(auth.uid).exists()",
+
+          "$messageId": {
+            ".write": "auth != null && root.child('chatroom_users').child($chatroomId).child(auth.uid).exists()",
+
+            ".validate": "newData.hasChildren(['senderId',  'createdAt', 'messageType']) && newData.child('senderId').val() == auth.uid && newData.child('createdAt').isNumber() && newData.child('messageType').val().matches(/^(text|file|video|image)$/)"
+          },
+
+          ".indexOn": ["timestamp", "senderId", "createdAt"]
+        },
+        "scheduledMessages": {
+          ".read": "auth != null ",
+
+          ".indexOn": ["senderId"]
+        },
+        "activity_logs": {
+          ".indexOn": ["timestamp"],
+          ".read": "auth != null",
+          ".write": "auth != null"
+        },
+        "encryption": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "$userId": {
+            ".read": "$userId === auth.uid",
+            ".write": "$userId === auth.uid",
+            "privatekey": {
+              ".read": "$userId === auth.uid",
+              ".write": "$userId === auth.uid"
+            }
+          }
+        }
+      }
+    },
+    "groupKeys": {
+      ".read": "auth != null ",
+      ".write": "auth != null",
+      "$groupId": {
+        ".read": "auth != null ",
+        ".write": "auth != null",
+
+        "senderKey": {
+          ".read": "auth != null ",
+          ".write": "auth != null"
+        },
+        "memberKeys": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "$userId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
           }
         }
       }

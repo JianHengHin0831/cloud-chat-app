@@ -15,7 +15,6 @@
         </button>
       </div>
 
-      <!-- 成员信息 -->
       <div class="space-y-5">
         <!-- User Avatar and Name -->
         <div class="flex items-center space-x-4">
@@ -158,7 +157,6 @@
         </div>
       </div>
 
-      <!-- 关闭按钮 -->
       <button
         @click="$emit('close')"
         class="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 transition-colors"
@@ -178,18 +176,17 @@ import { db } from "~/firebase/firebase.js";
 import { auth } from "~/firebase/firebase.js";
 
 const props = defineProps({
-  member: Object, // 成员信息
+  member: Object,
   chatroomId: String,
 });
 
 const emit = defineEmits(["close"]);
 
-// 用户数据
 const userData = ref(null);
 const commonGroups = ref([]);
 const totalCommonGroups = ref(0);
 
-// 获取用户数据
+// Get user data
 const fetchUserData = async () => {
   try {
     const userRef = dbRef(db, `users/${props.member.id}`);
@@ -197,28 +194,23 @@ const fetchUserData = async () => {
 
     if (!snapshot.exists()) return;
 
-    // 1. 基础公开字段（所有人可见）
     const publicData = {
       username: snapshot.child("username").val() || "",
       avatarUrl: snapshot.child("avatarUrl").val() || "/images/user_avatar.png",
     };
 
-    // 2. 根据隐私设置获取受限字段
     const advancedSettings = snapshot.child("advancedSettings").val() || {};
 
-    // 2.1 邮箱处理
     if (advancedSettings.showEmail) {
       publicData.email = snapshot.child("email").val() || "anonymous";
     } else {
       publicData.email = "anonymous";
     }
 
-    // 2.2 活动状态处理
     if (advancedSettings.activityVisibility === "everyone") {
       publicData.status = snapshot.child("status").val() || "offline";
       publicData.lastActive = snapshot.child("lastActive").val() || null;
 
-      // 仅当用户允许显示详细状态时
       if (advancedSettings.showExactTime !== false) {
         publicData.advancedSettings = {
           bio: snapshot.child("advancedSettings/bio").val(),
@@ -229,7 +221,6 @@ const fetchUserData = async () => {
 
     userData.value = publicData;
 
-    // 获取加入时间
     const joinedAtRef = dbRef(
       db,
       `chatroom_users/${props.chatroomId}/${props.member.id}/joinedAt`
@@ -239,18 +230,16 @@ const fetchUserData = async () => {
       props.member.joinedAt = joinedAtSnapshot.val();
     }
 
-    // 获取共同群组
+    // Get a common group
     await fetchCommonGroups();
   } catch (error) {
-    console.error("获取用户数据失败:", error);
+    console.error("Failed to obtain user data:", error);
     userData.value = null;
   }
 };
 
-// 获取共同群组
 const fetchCommonGroups = async () => {
   try {
-    // 获取当前用户的所有群组
     const currentUserChatroomsRef = dbRef(
       db,
       `user_chatrooms/${auth.currentUser.uid}`
@@ -261,12 +250,10 @@ const fetchCommonGroups = async () => {
       return;
     }
 
-    // 获取当前用户的所有群组ID
     const currentUserGroups = Object.keys(currentUserChatroomsSnapshot.val());
 
-    // 检查每个群组中是否存在目标用户
     const checkPromises = currentUserGroups
-      .filter((groupId) => groupId !== props.chatroomId) // 排除当前群组
+      .filter((groupId) => groupId !== props.chatroomId)
       .map(async (groupId) => {
         const targetUserInGroupRef = dbRef(
           db,
@@ -275,7 +262,6 @@ const fetchCommonGroups = async () => {
         const targetUserInGroupSnapshot = await get(targetUserInGroupRef);
 
         if (targetUserInGroupSnapshot.exists()) {
-          // 如果用户在这个群组中，获取群组信息
           const groupRef = dbRef(db, `chatrooms/${groupId}`);
           const groupSnapshot = await get(groupRef);
           if (groupSnapshot.exists()) {
@@ -294,13 +280,12 @@ const fetchCommonGroups = async () => {
     const validGroups = results.filter((group) => group !== null);
 
     totalCommonGroups.value = validGroups.length;
-    commonGroups.value = validGroups.slice(0, 3); // 只显示前三个群组
+    commonGroups.value = validGroups.slice(0, 3);
   } catch (error) {
-    console.error("获取共同群组失败:", error);
+    console.error("Failed to obtain common group:", error);
   }
 };
 
-// 根据隐私设置计算是否显示活动状态
 const canShowActivity = computed(() => {
   if (!userData.value || !userData.value.advancedSettings) return false;
 
@@ -308,25 +293,21 @@ const canShowActivity = computed(() => {
   return activityVisibility === "everyone";
 });
 
-// 计算是否显示在线状态
 const canShowOnlineStatus = computed(() => {
   if (!canShowActivity.value) return false;
   return userData.value?.advancedSettings?.isOnline !== false;
 });
 
-// 计算是否显示最后活跃时间
 const canShowLastActive = computed(() => {
   if (!canShowOnlineStatus.value) return false;
   return userData.value?.advancedSettings?.showExactTime !== false;
 });
 
-// 计算是否显示邮箱
 const canShowEmail = computed(() => {
   if (!userData.value || !userData.value.advancedSettings) return false;
   return userData.value.advancedSettings.showEmail === true;
 });
 
-// 格式化状态文本
 const formatStatus = (status) => {
   switch (status) {
     case "available":
@@ -342,13 +323,11 @@ const formatStatus = (status) => {
   }
 };
 
-// 格式化时间
 const formatTime = async (timestamp) => {
   if (!timestamp) return "";
   return await formatTimeFromUtils(timestamp);
 };
 
-// 格式化加入时间
 const formatJoinedTime = async () => {
   if (props.member.joinedAt) {
     props.member.formattedJoinedTime = await formatTimeFromUtils(
@@ -357,7 +336,7 @@ const formatJoinedTime = async () => {
   }
 };
 
-// 格式化最后活跃时间
+// Format the last active time
 const formatLastActiveTime = async () => {
   if (userData.value?.lastActive) {
     userData.value.formattedLastActive = await formatTimeFromUtils(
@@ -366,13 +345,13 @@ const formatLastActiveTime = async () => {
   }
 };
 
-// 监听数据变化并更新时间
+// Listen to data changes and update time
 watch(() => props.member.joinedAt, formatJoinedTime, { immediate: true });
 watch(() => userData.value?.lastActive, formatLastActiveTime, {
   immediate: true,
 });
 
-// 组件挂载时获取用户数据
+// Obtain user data when component is mounted
 onMounted(() => {
   fetchUserData();
 });

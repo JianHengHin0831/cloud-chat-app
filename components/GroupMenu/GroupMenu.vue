@@ -271,12 +271,12 @@ const openLeaveGroup = () => {
   isMenuOpen.value = false;
 };
 
-// 关闭 Leave Group 弹窗
+// Close Leave Group pop-up window
 const closeLeaveGroup = () => {
   isLeaveGroupOpen.value = false;
 };
 
-// 打开/关闭菜单
+//Open/Close Menu
 const toggleMenu = () => {
   isMenuOpen.value = !isMenuOpen.value;
   if (isMenuOpen.value) {
@@ -290,7 +290,7 @@ const toggleMenu = () => {
   }
 };
 
-// 打开 View Group Details 弹窗
+//Open View Group Details pop-up window
 const openViewGroupDetails = () => {
   logEvent("open_view_group_details_modal", {
     groupId: props.selectedGroupId,
@@ -302,12 +302,12 @@ const openViewGroupDetails = () => {
   isMenuOpen.value = false;
 };
 
-// 关闭 View Group Details 弹窗
+//Close View Group Details pop-up window
 const closeViewGroupDetails = () => {
   isViewGroupDetailsOpen.value = false;
 };
 
-// 打开 Update Group Details 弹窗
+// Open Update Group Details pop-up window
 const openUpdateGroupDetails = () => {
   logEvent("open_update_group_details_modal", {
     groupId: props.selectedGroupId,
@@ -319,12 +319,12 @@ const openUpdateGroupDetails = () => {
   isMenuOpen.value = false;
 };
 
-// 关闭 Update Group Details 弹窗
+// Close Update Group Details pop-up window
 const closeUpdateGroupDetails = () => {
   isUpdateGroupDetailsOpen.value = false;
 };
 
-// 打开 Disband Group 弹窗
+// Open the Disband Group pop-up window
 const openDisbandGroup = () => {
   logEvent("open_disband_group_modal", {
     groupId: props.selectedGroupId,
@@ -336,12 +336,12 @@ const openDisbandGroup = () => {
   isMenuOpen.value = false;
 };
 
-// 关闭 Disband Group 弹窗
+// Close Disband Group pop-up window
 const closeDisbandGroup = () => {
   isDisbandGroupOpen.value = false;
 };
 
-// 打开 Scheduled Messages 弹窗
+// Open Scheduled Messages pop-up window
 const openScheduledMessages = () => {
   logEvent("open_scheduled_messages_modal", {
     groupId: props.selectedGroupId,
@@ -353,7 +353,7 @@ const openScheduledMessages = () => {
   isMenuOpen.value = false;
 };
 
-// 关闭 Scheduled Messages 弹窗
+//Close Scheduled Messages pop-up window
 const closeScheduledMessages = () => {
   isScheduledMessagesOpen.value = false;
 };
@@ -374,7 +374,6 @@ const confirmGlobalMute = async () => {
   try {
     await muteAllMembers(props.selectedGroupId, !props.groupData.isGlobalMuted);
 
-    // 记录活动日志
     await writeActivityLog(
       props.selectedGroupId,
       auth.currentUser?.uid || "system",
@@ -383,7 +382,6 @@ const confirmGlobalMute = async () => {
       } all members`
     );
 
-    // 发送通知给所有成员
     await sendNotification({
       groupId: props.selectedGroupId,
       title: props.groupData.isGlobalMuted ? "Group Unmuted" : "Group Muted",
@@ -392,10 +390,9 @@ const confirmGlobalMute = async () => {
       } by ${auth.currentUser?.displayName || "the admin"}`,
       chatroomId: props.selectedGroupId,
       isSaveNotification: true,
-      excludeMuted: false, // 通知所有成员，包括设置了静音的用户
+      excludeMuted: false,
     });
 
-    // Log success
     logEvent("global_mute_success", {
       groupId: props.selectedGroupId,
       userId: auth.currentUser?.uid,
@@ -405,7 +402,6 @@ const confirmGlobalMute = async () => {
       timestamp: new Date().toISOString(),
     });
 
-    // Track metrics
     trackMetric("global_mute_duration", Date.now() - startTime);
     trackMetric("global_mute_success_count", 1);
 
@@ -414,7 +410,6 @@ const confirmGlobalMute = async () => {
   } catch (error) {
     console.error("Error toggling global mute:", error);
 
-    // Log failure
     logEvent("global_mute_failure", {
       groupId: props.selectedGroupId,
       userId: auth.currentUser?.uid,
@@ -424,7 +419,6 @@ const confirmGlobalMute = async () => {
       timestamp: new Date().toISOString(),
     });
 
-    // Track failure metric
     trackMetric("global_mute_failure_count", 1);
   }
 };

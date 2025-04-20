@@ -35,7 +35,6 @@
               </svg>
             </button>
           </div>
-          <!-- 提示消息 -->
           <p v-if="showCopySuccess" class="mt-1 text-sm text-green-500">
             Group ID copied to clipboard!
           </p>
@@ -88,7 +87,6 @@
 </template>
 
 <script setup>
-// 定义 props
 const props = defineProps({
   groupData: Object,
 });
@@ -96,11 +94,9 @@ const props = defineProps({
 import { auth } from "~/firebase/firebase.js";
 import { logEvent, trackMetric } from "~/utils/logging";
 
-// 提示消息状态
 const showCopySuccess = ref(false);
 const showCopyError = ref(false);
 
-// 记录查看组详情事件
 onMounted(() => {
   logEvent("view_group_details", {
     groupId: props.groupData.id,
@@ -111,14 +107,11 @@ onMounted(() => {
   trackMetric("view_group_details_count", 1);
 });
 
-// 复制 Group ID 的函数
 const copyGroupId = async () => {
   const startTime = Date.now();
   try {
-    // 使用 Clipboard API 复制文本
     await navigator.clipboard.writeText(props.groupData.id);
 
-    // 记录成功复制事件
     logEvent("copy_group_id_success", {
       groupId: props.groupData.id,
       userId: auth.currentUser?.uid,
@@ -126,22 +119,18 @@ const copyGroupId = async () => {
       timestamp: new Date().toISOString(),
     });
 
-    // 跟踪指标
     trackMetric("copy_group_id_duration", Date.now() - startTime);
     trackMetric("copy_group_id_success_count", 1);
 
-    // 显示成功提示
     showCopySuccess.value = true;
     showCopyError.value = false;
 
-    // 3 秒后隐藏提示
     setTimeout(() => {
       showCopySuccess.value = false;
     }, 3000);
   } catch (error) {
     console.error("Failed to copy Group ID:", error);
 
-    // 记录失败事件
     logEvent("copy_group_id_failure", {
       groupId: props.groupData.id,
       userId: auth.currentUser?.uid,
@@ -150,14 +139,11 @@ const copyGroupId = async () => {
       timestamp: new Date().toISOString(),
     });
 
-    // 跟踪失败指标
     trackMetric("copy_group_id_failure_count", 1);
 
-    // 显示错误提示
     showCopyError.value = true;
     showCopySuccess.value = false;
 
-    // 3 秒后隐藏提示
     setTimeout(() => {
       showCopyError.value = false;
     }, 3000);

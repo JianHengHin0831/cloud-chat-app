@@ -6,7 +6,7 @@ interface RouteParams {
 }
 
 export default defineEventHandler(async (event) => {
-  // 1. 安全获取路由参数
+  // 1. Securely obtain routing parameters
   const params = event.context.params;
   if (!params?.groupId) {
     throw createError({
@@ -16,11 +16,11 @@ export default defineEventHandler(async (event) => {
   }
   const { groupId } = params;
 
-  // 2. 验证请求体和权限
+  // 2. Verify request body and permissions
   const { memberId } = await readBody(event);
   const authUser = await verifyAuth(event);
 
-  // 3. 权限验证（使用Admin SDK）
+  // 3. Permission verification (using Admin SDK)
   const requesterRole = await getRole(groupId, authUser.uid);
   if (requesterRole !== "admin") {
     throw createError({
@@ -28,8 +28,7 @@ export default defineEventHandler(async (event) => {
       message: "Admin privileges required",
     });
   }
-
-  // 4. 执行管理员提升操作
+  //4. Perform administrator promotion operations
   const userRolePath = `chatroom_users/${groupId}/${memberId}/role`;
   await adminDb.ref(userRolePath).set("moderator", (error) => {
     if (error) {

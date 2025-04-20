@@ -1,5 +1,6 @@
 import { auth } from "~/firebase/firebase.js";
 
+// log event to server
 export const logEvent = async (
   eventType: string,
   details: Record<string, any>
@@ -25,7 +26,7 @@ export const logEvent = async (
   }
 };
 
-// 错误记录辅助函数
+// log error with context
 export const logError = async (error: Error, context: Record<string, any>) => {
   await logEvent("application_error", {
     ...context,
@@ -35,7 +36,7 @@ export const logError = async (error: Error, context: Record<string, any>) => {
   });
 };
 
-// 指标记录辅助函数
+// track metric with labels
 export const trackMetric = async (
   metricName: string,
   value: number,
