@@ -20,7 +20,7 @@
       >
         <div class="flex items-center space-x-4">
           <img
-            :src="groupInfo.photoUrl || 'https://via.placeholder.com/150'"
+            :src="groupInfo.photoUrl || '/images/group.png'"
             alt="Group Image"
             class="w-16 h-16 rounded-full object-cover"
           />

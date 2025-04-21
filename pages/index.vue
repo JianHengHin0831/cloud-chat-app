@@ -108,7 +108,7 @@
     </div>
 
     <!-- Mobile Navigation Bar -->
-    <MobileNavBar class="md:hidden" />
+    <MobileNavBar class="md:hidden" v-if="!selectedGroupId" />
 
     <!-- MD Group Info Modal -->
     <div
@@ -1377,11 +1377,12 @@ const checkIsGroupJoined = async (groupId) => {
 
 watch(selectedGroupId, async (newGroupId, oldGroupId) => {
   await set(
-    dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
+    dbRef(db, `chatroom_users/${oldGroupId}/${currentUserId.value}/lastRead`),
     Date.now() + 5000
   );
+
   await set(
-    dbRef(db, `chatroom_users/${oldGroupId}/${currentUserId.value}/lastRead`),
+    dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
     Date.now() + 5000
   );
 });

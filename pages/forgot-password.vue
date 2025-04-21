@@ -32,7 +32,7 @@
       </div>
 
       <!-- Welcome text -->
-      <div class="relative z-10">
+      <div class="relative z-10 mx-auto">
         <h1 class="text-4xl font-bold text-white mb-4">Reset Your Password</h1>
         <p class="text-white/90 max-w-md">
           Enter your email address below, and we'll send you a link to reset
@@ -45,7 +45,7 @@
     <div class="w-full md:w-1/2 flex items-center justify-center p-8">
       <div class="w-full max-w-md">
         <h2 class="text-gray-500 text-xl font-medium mb-8 text-center">
-          FORGOT PASSWORD
+          RESET PASSWORD
         </h2>
 
         <form @submit.prevent="handleForgotPassword">
@@ -87,14 +87,14 @@
           </button>
 
           <!-- Back to login link -->
-          <div class="text-center mt-4">
+          <!-- <div class="text-center mt-4">
             <p class="text-sm text-gray-400">
               Remember your password?
               <NuxtLink to="/login" class="text-purple-500 hover:underline"
                 >Login here</NuxtLink
               >
             </p>
-          </div>
+          </div> -->
 
           <!-- Error message -->
           <div

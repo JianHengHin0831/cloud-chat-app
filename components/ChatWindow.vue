@@ -85,9 +85,13 @@
       <!-- Group Menu and Mobile Group Info Button -->
       <div class="flex items-center space-x-2">
         <!-- Mobile and MD Group Info Button -->
+      </div>
+
+      <!-- Search Messages -->
+      <div class="flex space-x-2">
         <button
           @click="$emit('showGroupInfo')"
-          class="lg:hidden flex space-x-2 mr-2 pr-1 pb-1 items-center"
+          class="lg:hidden flex pb-1 items-center"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -104,10 +108,6 @@
             />
           </svg>
         </button>
-      </div>
-
-      <!-- Search Messages -->
-      <div class="flex space-x-2">
         <div class="relative mt-[3px]">
           <button
             @click="showSearch = !showSearch"
@@ -190,7 +190,7 @@
 
     <!-- Chat content -->
     <div
-      class="flex-1 overflow-y-auto max-h-[calc(80vh-90px)] md:max-h-[80vh] p-4 space-y-6 flex flex-col-reverse bg-white dark:bg-gray-800"
+      class="flex-1 overflow-y-auto max-h-[80vh] p-4 space-y-6 flex flex-col-reverse bg-white dark:bg-gray-800"
       @scroll="handleScroll"
       ref="chatContent"
     >

@@ -56,7 +56,7 @@
               </div>
 
               <!-- Online Status Toggle -->
-              <div class="mt-4 flex items-center gap-2">
+              <!-- <div class="mt-4 flex items-center gap-2">
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
@@ -83,7 +83,7 @@
                 >
                   {{ userSettings.isOnline ? "Online" : "Invisible" }}
                 </span>
-              </div>
+              </div> -->
             </div>
 
             <!-- Right Column: User Info Form -->

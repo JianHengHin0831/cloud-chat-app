@@ -22,7 +22,7 @@
           @click="openConfirmModal(user)"
         >
           <img
-            :src="user.avatarUrl"
+            :src="user.avatarUrl || '/images/default_avatar.png'"
             alt="avatar"
             referrerpolicy="no-referrer"
             class="w-10 h-10 rounded-full mr-3"
@@ -67,7 +67,7 @@
             class="flex items-center py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
           >
             <img
-              :src="pendingUser.avatarUrl"
+              :src="pendingUser.avatarUrl || '/images/default_avatar.png'"
               alt="avatar"
               referrerpolicy="no-referrer"
               class="w-10 h-10 rounded-full mr-3"
@@ -135,7 +135,7 @@
             class="flex items-center py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
             <img
-              :src="invited.avatarUrl"
+              :src="invited.avatarUrl || '/images/default_avatar.png'"
               alt="avatar"
               referrerpolicy="no-referrer"
               class="w-10 h-10 rounded-full mr-3"

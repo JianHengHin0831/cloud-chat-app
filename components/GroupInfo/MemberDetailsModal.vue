@@ -210,7 +210,7 @@ const fetchUserData = async () => {
 
     if (advancedSettings.activityVisibility === "everyone") {
       const status1 = snapshot.child("status").val();
-      publicData.status = status1.state || "offline";
+      publicData.status = status1.state || status1 || "offline";
       publicData.lastActive = status1.lastActive || null;
     } else {
       publicData.status = "Hidden";
