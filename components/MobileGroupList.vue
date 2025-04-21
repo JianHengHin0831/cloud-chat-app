@@ -109,10 +109,10 @@
               {{ group.name }}
             </h3>
             <span
-              v-if="group.unreadCount > 0"
+              v-if="groupLastReadCount[group.id] > 0"
               class="bg-green-500 text-white text-xs rounded-full px-2 py-1"
             >
-              {{ group.unreadCount }}
+              {{ groupLastReadCount[group.id] }}
             </span>
           </div>
           <p
@@ -237,7 +237,14 @@
 
 <script setup>
 import { ref, computed } from "vue";
-
+import {
+  ref as dbRef,
+  get,
+  query as rtdbQuery,
+  orderByChild,
+  startAt,
+} from "firebase/database";
+import { auth, db } from "~/firebase/firebase.js";
 const props = defineProps({
   groups: {
     type: Array,
@@ -286,5 +293,51 @@ const handleJoinGroup = () => {
   // Implement join group logic here
   showJoinModal.value = false;
   joinCode.value = "";
+};
+
+const groupLastReadCount = ref({});
+watch(
+  () => props.groups,
+  async () => {
+    if (!auth.currentUser.uid) return;
+    props.groups.forEach(async (group) => {
+      const count = await getLastReadCount(group);
+      groupLastReadCount.value = {
+        ...groupLastReadCount.value,
+        [group.id]: count,
+      };
+      console.log(groupLastReadCount.value);
+    });
+  },
+  { deep: true }
+);
+
+const getLastReadCount = async (group) => {
+  if (!auth.currentUser.uid) return;
+  try {
+    console.log(group.id);
+    const lastReadRef = dbRef(
+      db,
+      `chatroom_users/${group.id}/${auth.currentUser.uid}/lastRead`
+    );
+    const lastReadSnapshot = await get(lastReadRef);
+    console.log(lastReadSnapshot.val());
+    const lastRead = lastReadSnapshot.exists() ? lastReadSnapshot.val() : 0;
+
+    const unreadQuery = rtdbQuery(
+      dbRef(db, `chatrooms/${group.id}/messages`),
+      orderByChild("createdAt"),
+      startAt(lastRead + 1)
+    );
+
+    const unreadSnapshot = await get(unreadQuery);
+    const lastReadCount = unreadSnapshot.exists()
+      ? Object.keys(unreadSnapshot.val()).length
+      : 0;
+    return lastReadCount;
+  } catch (error) {
+    console.warn(`Error getting unread count for ${group.id}:`, error);
+    return 0;
+  }
 };
 </script>

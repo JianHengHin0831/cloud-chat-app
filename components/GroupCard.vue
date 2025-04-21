@@ -89,7 +89,7 @@ const joinGroup = async () => {
     await writeActivityLog(
       props.group.id,
       auth.currentUser?.uid,
-      `${await getUsername(auth.currentUser?.uid)} has joined the group"`,
+      `${await getUsername(auth.currentUser?.uid)} has joined the group`,
       joinedAt + 1
     );
 

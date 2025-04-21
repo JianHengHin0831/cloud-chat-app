@@ -62,6 +62,7 @@
               <img
                 :src="member.avatarUrl"
                 alt="avatar"
+                referrerpolicy="no-referrer"
                 class="w-10 h-10 rounded-full mr-3"
               />
               <div
@@ -169,7 +170,7 @@
       </div>
 
       <!-- Pinned Messages Section -->
-      <div class="mt-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+      <div class="mt-4 border-t border-gray-200 dark:border-gray-400 pt-4">
         <h4 class="text-gray-500 dark:text-gray-400 font-medium mb-2">
           Pinned Messages ({{ pinnedMessages?.length || 0 }})
         </h4>
@@ -178,7 +179,7 @@
           <div
             v-for="msg in pinnedMessages"
             :key="msg.id"
-            class="bg-gray-50 dark:bg-gray-800 rounded-lg p-3"
+            class="bg-gray-50 dark:bg-gray-700 rounded-lg p-3"
           >
             <!-- Message Header -->
             <div class="flex items-center justify-between mb-2">
@@ -186,6 +187,7 @@
                 <img
                   :src="getUserAvatar(msg.senderId)"
                   class="w-6 h-6 rounded-full"
+                  referrerpolicy="no-referrer"
                 />
                 <span class="font-medium text-sm">{{
                   getUserName(msg.senderId)
@@ -194,7 +196,7 @@
               <div class="flex items-center space-x-2">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  class="h-4 w-4 text-gray-400"
+                  class="h-4 w-4 text-green-500"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                 >
@@ -313,13 +315,14 @@ const getUserName = (userId) => {
   return props.members.find((member) => member?.id === userId)?.username || "";
 };
 
-const isModeratorOrAdmin = (userId) => {
+const isModeratorOrAdmin = computed(() => {
+  const userId = auth.currentUser?.uid;
   return (
     props.members.find((member) => member?.id === userId)?.role ===
       "moderator" ||
     props.members.find((member) => member?.id === userId)?.role === "admin"
   );
-};
+});
 
 const emit = defineEmits(["update:isMuted", "update:isPinned", "back"]);
 
@@ -360,14 +363,14 @@ const handleAddMember = async (userId) => {
       requestedAt: now,
     });
 
-    await sendNotification({
-      userIds: [userId],
-      title: "New Member Request",
-      isSaveNotification: true,
-      body: "You have a new member request",
-      chatroomId: props.selectedGroupId,
-      isSaveNotification: true,
-    });
+    // await sendNotification({
+    //   userIds: [userId],
+    //   title: "New Member Request",
+    //   isSaveNotification: true,
+    //   body: "You have a new member request",
+    //   chatroomId: props.selectedGroupId,
+    //   isSaveNotification: true,
+    // });
   } catch (error) {
     console.error("Error adding member:", error);
   }
@@ -542,12 +545,14 @@ const notifyMemberApproval = async (groupId, userId, approved) => {
 //Agree with the pending user
 const approvePendingUser = async (userId) => {
   try {
-    await approveMemberApi(props.selectedGroupId, userId);
+    const joinedAt = Date.now();
+    await approveMemberApi(props.selectedGroupId, userId, joinedAt);
     await notifyMemberApproval(props.selectedGroupId, userId, true);
     await writeActivityLog(
       props.selectedGroupId,
       auth.currentUser?.uid || "system",
-      `${getUsername(userId) || "A user"} has joined the group`
+      `${(await getUsername(userId)) || "A user"} has joined the group`,
+      joinedAt + 1
     );
   } catch (error) {
     console.error("Error approving user:", error);

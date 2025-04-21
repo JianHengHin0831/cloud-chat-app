@@ -4,27 +4,23 @@ import { getRouterParam } from "h3";
 
 export default defineEventHandler(async (event) => {
   const userId = getRouterParam(event, "userId");
-  const user = event.context.user;
+  const { username, advancedSettings } = await readBody(event);
 
-  if (userId !== user.uid) {
+  const authUser = await verifyAuth(event);
+
+  if (authUser.uid !== userId) {
     throw createError({
       statusCode: 403,
       message: "You can only update your own profile",
     });
   }
-
-  const body = await readBody(event);
-  const { displayName, photoURL, bio } = body;
-
-  const updateData = {
-    displayName,
-    photoURL,
-    bio,
-    updatedAt: Date.now(),
-  };
-
   try {
-    await adminAuth.updateUser(user.uid, updateData);
+    console.log(username);
+    await adminDb.ref(`users/${userId}`).update({ username: username });
+    await adminDb
+      .ref(`users/${userId}/advancedSettings`)
+      .update(advancedSettings);
+
     return { success: true };
   } catch (error) {
     throw createError({

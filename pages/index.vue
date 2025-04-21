@@ -24,38 +24,44 @@
         <!-- Group List (1 part, Scrollable) -->
         <GroupList
           :groups="groups"
-          class="col-span-10 lg:col-span-10 ml-2 lg:ml-4 bg-gray-100 dark:bg-gray-800 overflow-y-auto my-2 lg:my-3 rounded-lg"
+          class="col-span-10 lg:col-span-10 ml-2 lg:ml-6 bg-gray-100 dark:bg-gray-800 overflow-y-auto my-2 lg:my-3 rounded-lg"
           :selectedGroupId="selectedGroupId"
           @select="handleGroupSelect"
         />
       </div>
 
       <!-- Chat Window (3 parts, Scrollable) -->
-      <ChatWindow
-        :selectedGroupId="selectedGroupId"
-        :groupData="selectedGroupData || {}"
-        :membersData="selectedGroupMembers || []"
-        :messages="messages"
-        :hasMoreMessages="hasMoreMessages"
-        :userId="currentUserId"
-        @loadMore="loadMoreMessages"
-        @showGroupInfo="showGroupInfo = true"
-        class="md:col-span-7 lg:col-span-6 bg-white dark:bg-gray-800 overflow-y-auto min-h-0"
-      />
-      <!-- Group Info (1/4 width, Scrollable) -->
-      <GroupInfo
-        :members="selectedGroupMembers || []"
-        :sharedFiles="sharedFiles"
-        :selectedGroupId="selectedGroupId"
-        :isMuted="currentGroupMutedState"
-        :isPinned="currentGroupPinnedState"
-        :currentRole="currentRole"
-        :pinnedMessages="messages.filter((msg) => msg.isPinned)"
-        :isDisband="selectedGroupData?.isDisband"
-        @update:isMuted="handleToggleMute"
-        @update:isPinned="handleTogglePin"
-        class="col-span-3 border-l dark:border-gray-700 hidden lg:block bg-white dark:bg-gray-800 my-2 lg:my-3 rounded-lg shadow-md dark:shadow-gray-900 overflow-y-auto min-h-0"
-      />
+      <template v-if="selectedGroupId">
+        <ChatWindow
+          :selectedGroupId="selectedGroupId"
+          :groupData="selectedGroupData || {}"
+          :membersData="selectedGroupMembers || []"
+          :messages="messages"
+          :hasMoreMessages="hasMoreMessages"
+          :userId="currentUserId"
+          @loadMore="loadMoreMessages"
+          @showGroupInfo="showGroupInfo = true"
+          class="md:col-span-7 lg:col-span-6 bg-white dark:bg-gray-800 overflow-y-auto min-h-0"
+        />
+        <GroupInfo
+          :members="selectedGroupMembers || []"
+          :sharedFiles="sharedFiles"
+          :selectedGroupId="selectedGroupId"
+          :isMuted="currentGroupMutedState"
+          :isPinned="currentGroupPinnedState"
+          :currentRole="currentRole"
+          :pinnedMessages="messages.filter((msg) => msg.isPinned)"
+          :isDisband="selectedGroupData?.isDisband"
+          @update:isMuted="handleToggleMute"
+          @update:isPinned="handleTogglePin"
+          class="col-span-3 border-l dark:border-gray-700 hidden lg:block bg-white dark:bg-gray-800 my-2 lg:my-3 rounded-lg shadow-md dark:shadow-gray-900 overflow-y-auto min-h-0"
+        />
+      </template>
+      <template v-else>
+        <NoGroupSelected
+          class="md-col-7 md:col-span-7 lg:col-span-9 bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-gray-900"
+        />
+      </template>
     </div>
 
     <!-- Mobile Layout -->
@@ -172,6 +178,7 @@ import { decryptLastMessage } from "@/services/chatroom-service";
 import SeoMeta from "@/components/SEOMeta.vue";
 import MobileGroupList from "@/components/MobileGroupList.vue";
 import LoadingScreen from "@/components/LoadingScreen.vue";
+import NoGroupSelected from "@/components/NoGroupSelected.vue";
 const title = "Cloudtalk - Real-time Chat Rooms";
 const description =
   "Join our community. Chat in real-time, join themed rooms, and find new friends!";
@@ -228,10 +235,12 @@ const fetchMessages = async (groupId, loadMore = false) => {
     if (unsubscribeMessages && Array.isArray(unsubscribeMessages)) {
       unsubscribeMessages.forEach((unsubscribe) => unsubscribe());
     }
+
     unsubscribeMessages = await setupMessagesListener(
       groupId,
       (newMessages) => {
         try {
+          console.log("New messages received:", newMessages);
           if (loadMore) {
             messages.value = [...messages.value, ...newMessages];
           } else {
@@ -287,6 +296,7 @@ const fetchGroupData = async (groupId) => {
     unsubscribeChatroomInfo = onValue(chatroomInfoRef, async (snapshot) => {
       try {
         const chatroomData = snapshot.val();
+
         if (chatroomData) {
           selectedGroupData.value = {
             id: groupId,
@@ -295,6 +305,7 @@ const fetchGroupData = async (groupId) => {
             name: chatroomData.name,
             photoUrl: chatroomData.photoUrl,
             isDisband: chatroomData?.isDisband || false,
+            isGlobalMuted: chatroomData?.isGlobalMuted || false,
           };
         }
       } catch (error) {
@@ -324,12 +335,14 @@ const fetchGroupData = async (groupId) => {
 
           if (chatroomData) {
             selectedGroupData.value = {
+              ...selectedGroupData.value,
               id: groupId,
               chatType: chatroomData.chatType,
               description: chatroomData.description,
               name: chatroomData.name,
               photoUrl: chatroomData.photoUrl,
               isDisband: chatroomData?.isDisband || false,
+              //isGlobalMuted: chatroomData?.isGlobalMuted || false,
             };
           }
 
@@ -347,12 +360,14 @@ const fetchGroupData = async (groupId) => {
 
     if (chatroomData) {
       selectedGroupData.value = {
+        ...selectedGroupData.value,
         id: groupId,
         chatType: chatroomData.chatType,
         description: chatroomData.description,
         name: chatroomData.name,
         photoUrl: chatroomData.photoUrl,
         isDisband: chatroomData?.isDisband || false,
+        //isGlobalMuted: chatroomData?.isGlobalMuted || false,
       };
     }
 
@@ -382,6 +397,7 @@ const loadMoreMessages = async (groupId) => {
   }
 };
 
+let groupsListenerCleanup;
 //initialize the application
 const initializeApp = async () => {
   try {
@@ -629,169 +645,584 @@ const formatLastMessage = async (messageData, userId, groupId) => {
   return `${action} a ${messageData.messageType.toLowerCase()}`;
 };
 
+// const setupGroupsRealtimeListener = (userId, callback) => {
+//   // Clean up previous listener if exists
+//   if (groupsListenerCleanup) {
+//     groupsListenerCleanup();
+//   }
+
+//   const userGroupsRef = dbRef(db, `user_chatrooms/${userId}`);
+//   const unsubscribeCallbacks = [];
+
+//   // Main groups listener
+//   const unsubscribeUserGroups = onValue(
+//     userGroupsRef,
+//     async (userGroupsSnapshot) => {
+//       if (!userGroupsSnapshot.exists()) {
+//         groups.value = [];
+//         if (typeof callback === "function") {
+//           callback([]);
+//         }
+//         return;
+//       }
+
+//       const userGroups = userGroupsSnapshot.val();
+//       const groupIds = Object.keys(userGroups);
+
+//       // Process all groups in parallel
+//       const groupPromises = groupIds.map(async (chatroomId) => {
+//         try {
+//           // Get all needed data in parallel using one-time listeners
+//           const [chatroomSnap, userStatusSnap, messagesSnap, activitySnap] =
+//             await Promise.all([
+//               new Promise((resolve) => {
+//                 const ref = dbRef(db, `chatrooms/${chatroomId}`);
+//                 onValue(
+//                   ref,
+//                   (snapshot) => {
+//                     resolve(snapshot);
+//                   },
+//                   { onlyOnce: true }
+//                 );
+//               }),
+//               new Promise((resolve) => {
+//                 const ref = dbRef(db, `chatroom_users/${chatroomId}/${userId}`);
+//                 onValue(
+//                   ref,
+//                   (snapshot) => {
+//                     resolve(snapshot);
+//                   },
+//                   { onlyOnce: true }
+//                 );
+//               }),
+//               new Promise((resolve) => {
+//                 const ref = rtdbQuery(
+//                   dbRef(db, `chatrooms/${chatroomId}/messages`),
+//                   orderByChild("createdAt"),
+//                   limitToLast(1)
+//                 );
+//                 onValue(
+//                   ref,
+//                   (snapshot) => {
+//                     resolve(snapshot);
+//                   },
+//                   { onlyOnce: true }
+//                 );
+//               }),
+//               new Promise((resolve) => {
+//                 const ref = rtdbQuery(
+//                   dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
+//                   orderByChild("timestamp"),
+//                   limitToLast(1)
+//                 );
+//                 onValue(
+//                   ref,
+//                   (snapshot) => {
+//                     resolve(snapshot);
+//                   },
+//                   { onlyOnce: true }
+//                 );
+//               }),
+//             ]);
+
+//           // Process group data (identical to original)
+//           const chatroomData = chatroomSnap.exists()
+//             ? chatroomSnap.val()
+//             : null;
+//           const userStatus = userStatusSnap.exists()
+//             ? userStatusSnap.val()
+//             : { isPinned: false };
+
+//           // Process last message (identical to original)
+//           let lastMessage = null;
+//           let lastMessageTime = null;
+//           let lastMessageType = null;
+
+//           const lastRegularMessage = messagesSnap.exists()
+//             ? Object.values(messagesSnap.val())[0]
+//             : null;
+
+//           const lastActivityLog = activitySnap.exists()
+//             ? Object.values(activitySnap.val())[0]
+//             : null;
+
+//           if (lastRegularMessage && lastActivityLog) {
+//             if (lastRegularMessage.createdAt > lastActivityLog.timestamp) {
+//               lastMessage = await formatLastMessage(
+//                 lastRegularMessage,
+//                 userId,
+//                 chatroomId
+//               );
+//               lastMessageTime = lastRegularMessage.createdAt;
+//               if (lastRegularMessage.isDeleted) {
+//                 lastMessageType = "deleted";
+//                 lastMessage = "This message has been deleted";
+//               }
+//             } else {
+//               lastMessage = lastActivityLog.details;
+//               lastMessageTime = lastActivityLog.timestamp;
+//               lastMessageType = "system";
+//             }
+//           } else if (lastRegularMessage) {
+//             lastMessage = await formatLastMessage(
+//               lastRegularMessage,
+//               userId,
+//               chatroomId
+//             );
+//             lastMessageTime = lastRegularMessage.createdAt;
+
+//             lastMessageType = lastRegularMessage.messageType;
+//             if (lastRegularMessage.isDeleted) {
+//               lastMessageType = "deleted";
+//               lastMessage = "This message has been deleted";
+//             }
+//           } else if (lastActivityLog) {
+//             lastMessage = lastActivityLog.details;
+//             lastMessageTime = lastActivityLog.timestamp;
+//             lastMessageType = "system";
+//           }
+
+//           // Return identical group object structure
+//           return {
+//             id: chatroomId,
+//             name: chatroomData?.name || "Unnamed Group",
+//             photoUrl: chatroomData?.photoUrl || "/images/group.png",
+//             isPinned: userStatus.isPinned || false,
+//             isMuted: userStatus.isMuted || false,
+//             isDisband: chatroomData?.isDisband || false,
+//             lastMessage,
+//             lastMessageTime: lastMessageTime || chatroomData?.createdAt || 0,
+//             lastMessageType,
+//             unreadCount: await getUnreadCount(userId, chatroomId),
+//           };
+//         } catch (error) {
+//           console.warn(`Error processing group ${chatroomId}:`, error);
+//           return null;
+//         }
+//       });
+
+//       // Process and sort groups (identical to original)
+//       const groupsData = (await Promise.all(groupPromises)).filter(Boolean);
+//       const sortedGroups = sortGroups(groupsData);
+//       // Update reactive data
+//       groups.value = sortedGroups;
+
+//       // Auto-select first group on desktop (identical to original)
+//       if (
+//         !selectedGroupId.value &&
+//         sortedGroups.length > 0 &&
+//         window.innerWidth >= 768
+//       ) {
+//         selectedGroupId.value = sortedGroups[0].id;
+//         handleGroupSelect(selectedGroupId.value);
+//       }
+
+//       // Call callback with initial data if provided
+//       callback?.(sortedGroups);
+
+//       // Setup listeners for each group's messages and activity logs
+//       groupIds.forEach((groupId) => {
+//         // Listen for new messages
+//         const messagesRef = rtdbQuery(
+//           dbRef(db, `chatrooms/${groupId}/messages`),
+//           orderByChild("createdAt"),
+//           limitToLast(1)
+//         );
+//         const unsubscribeMessages1 = onValue(messagesRef, async (snapshot) => {
+//           if (snapshot.exists()) {
+//             // Trigger a refresh of the groups data
+//             const userGroupsSnapshot = await get(userGroupsRef);
+//             if (userGroupsSnapshot.exists()) {
+//               const userGroups = userGroupsSnapshot.val();
+//               const groupIds = Object.keys(userGroups);
+//               // Process groups again
+//               const groupPromises = groupIds.map(async (chatroomId) => {
+//                 try {
+//                   const [
+//                     chatroomSnap,
+//                     userStatusSnap,
+//                     messagesSnap,
+//                     activitySnap,
+//                   ] = await Promise.all([
+//                     get(dbRef(db, `chatrooms/${chatroomId}`)),
+//                     get(dbRef(db, `chatroom_users/${chatroomId}/${userId}`)),
+//                     get(
+//                       rtdbQuery(
+//                         dbRef(db, `chatrooms/${chatroomId}/messages`),
+//                         orderByChild("createdAt"),
+//                         limitToLast(1)
+//                       )
+//                     ),
+//                     get(
+//                       rtdbQuery(
+//                         dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
+//                         orderByChild("timestamp"),
+//                         limitToLast(1)
+//                       )
+//                     ),
+//                   ]);
+
+//                   // ... (rest of the group processing logic)
+//                   const chatroomData = chatroomSnap.exists()
+//                     ? chatroomSnap.val()
+//                     : null;
+//                   const userStatus = userStatusSnap.exists()
+//                     ? userStatusSnap.val()
+//                     : { isPinned: false };
+//                   let lastMessage = null;
+//                   let lastMessageTime = null;
+//                   let lastMessageType = null;
+
+//                   const lastRegularMessage = messagesSnap.exists()
+//                     ? Object.values(messagesSnap.val())[0]
+//                     : null;
+//                   const lastActivityLog = activitySnap.exists()
+//                     ? Object.values(activitySnap.val())[0]
+//                     : null;
+
+//                   if (lastRegularMessage && lastActivityLog) {
+//                     if (
+//                       lastRegularMessage.createdAt > lastActivityLog.timestamp
+//                     ) {
+//                       lastMessage = await formatLastMessage(
+//                         lastRegularMessage,
+//                         userId,
+//                         chatroomId
+//                       );
+//                       lastMessageTime = lastRegularMessage.createdAt;
+//                       lastMessageType = lastRegularMessage.messageType;
+//                       if (lastRegularMessage.isDeleted) {
+//                         lastMessageType = "deleted";
+//                         lastMessage = "This message has been deleted";
+//                       }
+//                     } else {
+//                       lastMessage = lastActivityLog.details;
+//                       lastMessageTime = lastActivityLog.timestamp;
+//                       lastMessageType = "system";
+//                     }
+//                   } else if (lastRegularMessage) {
+//                     lastMessage = await formatLastMessage(
+//                       lastRegularMessage,
+//                       userId,
+//                       chatroomId
+//                     );
+//                     lastMessageTime = lastRegularMessage.createdAt;
+//                     lastMessageType = lastRegularMessage.messageType;
+//                     if (lastRegularMessage.isDeleted) {
+//                       lastMessageType = "deleted";
+//                       lastMessage = "This message has been deleted";
+//                     }
+//                   } else if (lastActivityLog) {
+//                     lastMessage = lastActivityLog.details;
+//                     lastMessageTime = lastActivityLog.timestamp;
+//                     lastMessageType = "system";
+//                   }
+
+//                   return {
+//                     id: chatroomId,
+//                     name: chatroomData?.name || "Unnamed Group",
+//                     photoUrl: chatroomData?.photoUrl || "/images/group.png",
+//                     isPinned: userStatus.isPinned || false,
+//                     isMuted: userStatus.isMuted || false,
+//                     isDisband: chatroomData?.isDisband || false,
+//                     lastMessage,
+//                     lastMessageTime:
+//                       lastMessageTime || chatroomData?.createdAt || 0,
+//                     lastMessageType,
+//                     unreadCount: await getUnreadCount(userId, chatroomId),
+//                   };
+//                 } catch (error) {
+//                   console.warn(`Error processing group ${chatroomId}:`, error);
+//                   return null;
+//                 }
+//               });
+
+//               const groupsData = (await Promise.all(groupPromises)).filter(
+//                 Boolean
+//               );
+//               const sortedGroups = sortGroups(groupsData);
+//               groups.value = sortedGroups;
+//               callback?.(sortedGroups);
+//             }
+//           }
+//         });
+//         unsubscribeCallbacks.push(unsubscribeMessages1);
+
+//         // Listen for activity logs
+//         const activityLogsRef = rtdbQuery(
+//           dbRef(db, `chatrooms/${groupId}/activity_logs`),
+//           orderByChild("timestamp"),
+//           limitToLast(1)
+//         );
+//         const unsubscribeActivityLogs = onValue(
+//           activityLogsRef,
+//           async (snapshot) => {
+//             if (snapshot.exists()) {
+//               // Trigger a refresh of the groups data (same as above)
+//               const userGroupsSnapshot = await get(userGroupsRef);
+//               if (userGroupsSnapshot.exists()) {
+//                 const userGroups = userGroupsSnapshot.val();
+//                 const groupIds = Object.keys(userGroups);
+//                 // Process groups again (same as above)
+//                 const groupPromises = groupIds.map(async (chatroomId) => {
+//                   try {
+//                     const [
+//                       chatroomSnap,
+//                       userStatusSnap,
+//                       messagesSnap,
+//                       activitySnap,
+//                     ] = await Promise.all([
+//                       get(dbRef(db, `chatrooms/${chatroomId}`)),
+//                       get(dbRef(db, `chatroom_users/${chatroomId}/${userId}`)),
+//                       get(
+//                         rtdbQuery(
+//                           dbRef(db, `chatrooms/${chatroomId}/messages`),
+//                           orderByChild("createdAt"),
+//                           limitToLast(1)
+//                         )
+//                       ),
+//                       get(
+//                         rtdbQuery(
+//                           dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
+//                           orderByChild("timestamp"),
+//                           limitToLast(1)
+//                         )
+//                       ),
+//                     ]);
+
+//                     const chatroomData = chatroomSnap.exists()
+//                       ? chatroomSnap.val()
+//                       : null;
+//                     const userStatus = userStatusSnap.exists()
+//                       ? userStatusSnap.val()
+//                       : { isPinned: false };
+//                     let lastMessage = null;
+//                     let lastMessageTime = null;
+//                     let lastMessageType = null;
+
+//                     const lastRegularMessage = messagesSnap.exists()
+//                       ? Object.values(messagesSnap.val())[0]
+//                       : null;
+//                     const lastActivityLog = activitySnap.exists()
+//                       ? Object.values(activitySnap.val())[0]
+//                       : null;
+
+//                     if (lastRegularMessage && lastActivityLog) {
+//                       if (
+//                         lastRegularMessage.createdAt > lastActivityLog.timestamp
+//                       ) {
+//                         lastMessage = await formatLastMessage(
+//                           lastRegularMessage,
+//                           userId,
+//                           chatroomId
+//                         );
+//                         lastMessageTime = lastRegularMessage.createdAt;
+//                         lastMessageType = lastRegularMessage.messageType;
+//                         if (lastRegularMessage.isDeleted) {
+//                           lastMessageType = "deleted";
+//                           lastMessage = "This message has been deleted";
+//                         }
+//                       } else {
+//                         lastMessage = lastActivityLog.details;
+//                         lastMessageTime = lastActivityLog.timestamp;
+//                         lastMessageType = "system";
+//                       }
+//                     } else if (lastRegularMessage) {
+//                       lastMessage = await formatLastMessage(
+//                         lastRegularMessage,
+//                         userId,
+//                         chatroomId
+//                       );
+//                       lastMessageTime = lastRegularMessage.createdAt;
+//                       lastMessageType = lastRegularMessage.messageType;
+//                       if (lastRegularMessage.isDeleted) {
+//                         lastMessageType = "deleted";
+//                         lastMessage = "This message has been deleted";
+//                       }
+//                     } else if (lastActivityLog) {
+//                       lastMessage = lastActivityLog.details;
+//                       lastMessageTime = lastActivityLog.timestamp;
+//                       lastMessageType = "system";
+//                     }
+
+//                     return {
+//                       id: chatroomId,
+//                       name: chatroomData?.name || "Unnamed Group",
+//                       photoUrl: chatroomData?.photoUrl || "/images/group.png",
+//                       isPinned: userStatus.isPinned || false,
+//                       isMuted: userStatus.isMuted || false,
+//                       isDisband: chatroomData?.isDisband || false,
+//                       lastMessage,
+//                       lastMessageTime:
+//                         lastMessageTime || chatroomData?.createdAt || 0,
+//                       lastMessageType,
+//                       unreadCount: await getUnreadCount(userId, chatroomId),
+//                     };
+//                   } catch (error) {
+//                     console.warn(
+//                       `Error processing group ${chatroomId}:`,
+//                       error
+//                     );
+//                     return null;
+//                   }
+//                 });
+
+//                 const groupsData = (await Promise.all(groupPromises)).filter(
+//                   Boolean
+//                 );
+//                 const sortedGroups = sortGroups(groupsData);
+//                 groups.value = sortedGroups;
+//                 callback?.(sortedGroups);
+//               }
+//             }
+//           }
+//         );
+//         unsubscribeCallbacks.push(unsubscribeActivityLogs);
+//       });
+//     }
+//   );
+
+//   // Store cleanup function
+//   groupsListenerCleanup = () => {
+//     unsubscribeUserGroups();
+//     unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe());
+//   };
+
+//   return groupsListenerCleanup;
+// };
+
 const setupGroupsRealtimeListener = (userId, callback) => {
-  // Clean up previous listener if exists
-  if (groupsListenerCleanup) {
-    groupsListenerCleanup();
-  }
+  if (groupsListenerCleanup) groupsListenerCleanup();
 
   const userGroupsRef = dbRef(db, `user_chatrooms/${userId}`);
   const unsubscribeCallbacks = [];
 
-  // Main groups listener
+  const fetchGroupData = async (chatroomId) => {
+    try {
+      const [chatroomSnap, userStatusSnap, messagesSnap, activitySnap] =
+        await Promise.all([
+          get(dbRef(db, `chatrooms/${chatroomId}`)),
+          get(dbRef(db, `chatroom_users/${chatroomId}/${userId}`)),
+          get(
+            rtdbQuery(
+              dbRef(db, `chatrooms/${chatroomId}/messages`),
+              orderByChild("createdAt"),
+              limitToLast(1)
+            )
+          ),
+          get(
+            rtdbQuery(
+              dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
+              orderByChild("timestamp"),
+              limitToLast(1)
+            )
+          ),
+        ]);
+
+      const chatroomData = chatroomSnap.exists() ? chatroomSnap.val() : null;
+      const userStatus = userStatusSnap.exists()
+        ? userStatusSnap.val()
+        : { isPinned: false };
+
+      const lastRegularMessage = messagesSnap.exists()
+        ? Object.values(messagesSnap.val())[0]
+        : null;
+      const lastActivityLog = activitySnap.exists()
+        ? Object.values(activitySnap.val())[0]
+        : null;
+
+      let lastMessage = null;
+      let lastMessageTime = null;
+      let lastMessageType = null;
+
+      if (lastRegularMessage && lastActivityLog) {
+        if (lastRegularMessage.createdAt > lastActivityLog.timestamp) {
+          lastMessage = await formatLastMessage(
+            lastRegularMessage,
+            userId,
+            chatroomId
+          );
+          lastMessageTime = lastRegularMessage.createdAt;
+          lastMessageType = lastRegularMessage.isDeleted
+            ? "deleted"
+            : lastRegularMessage.messageType;
+          if (lastRegularMessage.isDeleted)
+            lastMessage = "This message has been deleted";
+        } else {
+          lastMessage = lastActivityLog.details;
+          lastMessageTime = lastActivityLog.timestamp;
+          lastMessageType = "system";
+        }
+      } else if (lastRegularMessage) {
+        lastMessage = await formatLastMessage(
+          lastRegularMessage,
+          userId,
+          chatroomId
+        );
+        lastMessageTime = lastRegularMessage.createdAt;
+        lastMessageType = lastRegularMessage.isDeleted
+          ? "deleted"
+          : lastRegularMessage.messageType;
+        if (lastRegularMessage.isDeleted)
+          lastMessage = "This message has been deleted";
+      } else if (lastActivityLog) {
+        lastMessage = lastActivityLog.details;
+        lastMessageTime = lastActivityLog.timestamp;
+        lastMessageType = "system";
+      }
+
+      return {
+        id: chatroomId,
+        name: chatroomData?.name || "Unnamed Group",
+        photoUrl: chatroomData?.photoUrl || "/images/group.png",
+        isPinned: userStatus.isPinned || false,
+        isMuted: userStatus.isMuted || false,
+        isDisband: chatroomData?.isDisband || false,
+        lastMessage,
+        lastMessageTime: lastMessageTime || chatroomData?.createdAt || 0,
+        lastMessageType,
+        unreadCount: await getUnreadCount(userId, chatroomId),
+      };
+    } catch (error) {
+      console.warn(`Error processing group ${chatroomId}:`, error);
+      return null;
+    }
+  };
+
+  const refreshGroups = async () => {
+    const userGroupsSnapshot = await get(userGroupsRef);
+    if (!userGroupsSnapshot.exists()) return;
+
+    const userGroups = userGroupsSnapshot.val();
+    const groupIds = Object.keys(userGroups);
+    const groupsData = (await Promise.all(groupIds.map(fetchGroupData))).filter(
+      Boolean
+    );
+    const sortedGroups = sortGroups(groupsData);
+    groups.value = sortedGroups;
+    callback?.(sortedGroups);
+  };
+
   const unsubscribeUserGroups = onValue(
     userGroupsRef,
     async (userGroupsSnapshot) => {
       if (!userGroupsSnapshot.exists()) {
         groups.value = [];
-        if (typeof callback === "function") {
-          callback([]);
-        }
+        callback?.([]);
         return;
       }
+      console.log("Refreshing groups...");
+      if (selectedGroupId.value) await fetchMessages(selectedGroupId.value);
 
       const userGroups = userGroupsSnapshot.val();
       const groupIds = Object.keys(userGroups);
 
-      // Process all groups in parallel
-      const groupPromises = groupIds.map(async (chatroomId) => {
-        try {
-          // Get all needed data in parallel using one-time listeners
-          const [chatroomSnap, userStatusSnap, messagesSnap, activitySnap] =
-            await Promise.all([
-              new Promise((resolve) => {
-                const ref = dbRef(db, `chatrooms/${chatroomId}`);
-                onValue(
-                  ref,
-                  (snapshot) => {
-                    resolve(snapshot);
-                  },
-                  { onlyOnce: true }
-                );
-              }),
-              new Promise((resolve) => {
-                const ref = dbRef(db, `chatroom_users/${chatroomId}/${userId}`);
-                onValue(
-                  ref,
-                  (snapshot) => {
-                    resolve(snapshot);
-                  },
-                  { onlyOnce: true }
-                );
-              }),
-              new Promise((resolve) => {
-                const ref = rtdbQuery(
-                  dbRef(db, `chatrooms/${chatroomId}/messages`),
-                  orderByChild("createdAt"),
-                  limitToLast(1)
-                );
-                onValue(
-                  ref,
-                  (snapshot) => {
-                    resolve(snapshot);
-                  },
-                  { onlyOnce: true }
-                );
-              }),
-              new Promise((resolve) => {
-                const ref = rtdbQuery(
-                  dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
-                  orderByChild("timestamp"),
-                  limitToLast(1)
-                );
-                onValue(
-                  ref,
-                  (snapshot) => {
-                    resolve(snapshot);
-                  },
-                  { onlyOnce: true }
-                );
-              }),
-            ]);
-
-          // Process group data (identical to original)
-          const chatroomData = chatroomSnap.exists()
-            ? chatroomSnap.val()
-            : null;
-          const userStatus = userStatusSnap.exists()
-            ? userStatusSnap.val()
-            : { isPinned: false };
-
-          // Process last message (identical to original)
-          let lastMessage = null;
-          let lastMessageTime = null;
-          let lastMessageType = null;
-
-          const lastRegularMessage = messagesSnap.exists()
-            ? Object.values(messagesSnap.val())[0]
-            : null;
-
-          const lastActivityLog = activitySnap.exists()
-            ? Object.values(activitySnap.val())[0]
-            : null;
-
-          if (lastRegularMessage && lastActivityLog) {
-            if (lastRegularMessage.createdAt > lastActivityLog.timestamp) {
-              lastMessage = await formatLastMessage(
-                lastRegularMessage,
-                userId,
-                chatroomId
-              );
-              lastMessageTime = lastRegularMessage.createdAt;
-              if (lastRegularMessage.isDeleted) {
-                lastMessageType = "deleted";
-                lastMessage = "This message has been deleted";
-              }
-            } else {
-              lastMessage = lastActivityLog.details;
-              lastMessageTime = lastActivityLog.timestamp;
-              lastMessageType = "system";
-            }
-          } else if (lastRegularMessage) {
-            lastMessage = await formatLastMessage(
-              lastRegularMessage,
-              userId,
-              chatroomId
-            );
-            lastMessageTime = lastRegularMessage.createdAt;
-
-            lastMessageType = lastRegularMessage.messageType;
-            if (lastRegularMessage.isDeleted) {
-              lastMessageType = "deleted";
-              lastMessage = "This message has been deleted";
-            }
-          } else if (lastActivityLog) {
-            lastMessage = lastActivityLog.details;
-            lastMessageTime = lastActivityLog.timestamp;
-            lastMessageType = "system";
-          }
-
-          // Return identical group object structure
-          return {
-            id: chatroomId,
-            name: chatroomData?.name || "Unnamed Group",
-            photoUrl: chatroomData?.photoUrl || "/images/group.png",
-            isPinned: userStatus.isPinned || false,
-            isMuted: userStatus.isMuted || false,
-            isDisband: chatroomData?.isDisband || false,
-            lastMessage,
-            lastMessageTime: lastMessageTime || chatroomData?.createdAt || 0,
-            lastMessageType,
-            unreadCount: await getUnreadCount(userId, chatroomId),
-          };
-        } catch (error) {
-          console.warn(`Error processing group ${chatroomId}:`, error);
-          return null;
-        }
-      });
-
-      // Process and sort groups (identical to original)
-      const groupsData = (await Promise.all(groupPromises)).filter(Boolean);
+      const groupsData = (
+        await Promise.all(groupIds.map(fetchGroupData))
+      ).filter(Boolean);
       const sortedGroups = sortGroups(groupsData);
-      // Update reactive data
       groups.value = sortedGroups;
 
-      // Auto-select first group on desktop (identical to original)
       if (
         !selectedGroupId.value &&
         sortedGroups.length > 0 &&
@@ -801,278 +1232,33 @@ const setupGroupsRealtimeListener = (userId, callback) => {
         handleGroupSelect(selectedGroupId.value);
       }
 
-      // Call callback with initial data if provided
       callback?.(sortedGroups);
 
-      // Setup listeners for each group's messages and activity logs
+      // Setup listeners for new messages and activity logs
       groupIds.forEach((groupId) => {
-        // Listen for new messages
         const messagesRef = rtdbQuery(
           dbRef(db, `chatrooms/${groupId}/messages`),
-          orderByChild("createdAt"),
+          orderByChild("timestamp"),
           limitToLast(1)
         );
-        const unsubscribeMessages1 = onValue(messagesRef, async (snapshot) => {
-          if (snapshot.exists()) {
-            // Trigger a refresh of the groups data
-            const userGroupsSnapshot = await get(userGroupsRef);
-            if (userGroupsSnapshot.exists()) {
-              const userGroups = userGroupsSnapshot.val();
-              const groupIds = Object.keys(userGroups);
-              // Process groups again
-              const groupPromises = groupIds.map(async (chatroomId) => {
-                try {
-                  const [
-                    chatroomSnap,
-                    userStatusSnap,
-                    messagesSnap,
-                    activitySnap,
-                  ] = await Promise.all([
-                    get(dbRef(db, `chatrooms/${chatroomId}`)),
-                    get(dbRef(db, `chatroom_users/${chatroomId}/${userId}`)),
-                    get(
-                      rtdbQuery(
-                        dbRef(db, `chatrooms/${chatroomId}/messages`),
-                        orderByChild("createdAt"),
-                        limitToLast(1)
-                      )
-                    ),
-                    get(
-                      rtdbQuery(
-                        dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
-                        orderByChild("timestamp"),
-                        limitToLast(1)
-                      )
-                    ),
-                  ]);
-
-                  // ... (rest of the group processing logic)
-                  const chatroomData = chatroomSnap.exists()
-                    ? chatroomSnap.val()
-                    : null;
-                  const userStatus = userStatusSnap.exists()
-                    ? userStatusSnap.val()
-                    : { isPinned: false };
-                  let lastMessage = null;
-                  let lastMessageTime = null;
-                  let lastMessageType = null;
-
-                  const lastRegularMessage = messagesSnap.exists()
-                    ? Object.values(messagesSnap.val())[0]
-                    : null;
-                  const lastActivityLog = activitySnap.exists()
-                    ? Object.values(activitySnap.val())[0]
-                    : null;
-
-                  if (lastRegularMessage && lastActivityLog) {
-                    if (
-                      lastRegularMessage.createdAt > lastActivityLog.timestamp
-                    ) {
-                      lastMessage = await formatLastMessage(
-                        lastRegularMessage,
-                        userId,
-                        chatroomId
-                      );
-                      lastMessageTime = lastRegularMessage.createdAt;
-                      lastMessageType = lastRegularMessage.messageType;
-                      if (lastRegularMessage.isDeleted) {
-                        lastMessageType = "deleted";
-                        lastMessage = "This message has been deleted";
-                      }
-                    } else {
-                      lastMessage = lastActivityLog.details;
-                      lastMessageTime = lastActivityLog.timestamp;
-                      lastMessageType = "system";
-                    }
-                  } else if (lastRegularMessage) {
-                    lastMessage = await formatLastMessage(
-                      lastRegularMessage,
-                      userId,
-                      chatroomId
-                    );
-                    lastMessageTime = lastRegularMessage.createdAt;
-                    lastMessageType = lastRegularMessage.messageType;
-                    if (lastRegularMessage.isDeleted) {
-                      lastMessageType = "deleted";
-                      lastMessage = "This message has been deleted";
-                    }
-                  } else if (lastActivityLog) {
-                    lastMessage = lastActivityLog.details;
-                    lastMessageTime = lastActivityLog.timestamp;
-                    lastMessageType = "system";
-                  }
-
-                  return {
-                    id: chatroomId,
-                    name: chatroomData?.name || "Unnamed Group",
-                    photoUrl: chatroomData?.photoUrl || "/images/group.png",
-                    isPinned: userStatus.isPinned || false,
-                    isMuted: userStatus.isMuted || false,
-                    isDisband: chatroomData?.isDisband || false,
-                    lastMessage,
-                    lastMessageTime:
-                      lastMessageTime || chatroomData?.createdAt || 0,
-                    lastMessageType,
-                    unreadCount: await getUnreadCount(userId, chatroomId),
-                  };
-                } catch (error) {
-                  console.warn(`Error processing group ${chatroomId}:`, error);
-                  return null;
-                }
-              });
-
-              const groupsData = (await Promise.all(groupPromises)).filter(
-                Boolean
-              );
-              const sortedGroups = sortGroups(groupsData);
-              groups.value = sortedGroups;
-              callback?.(sortedGroups);
-            }
-          }
-        });
-        unsubscribeCallbacks.push(unsubscribeMessages1);
-
-        // Listen for activity logs
         const activityLogsRef = rtdbQuery(
           dbRef(db, `chatrooms/${groupId}/activity_logs`),
           orderByChild("timestamp"),
           limitToLast(1)
         );
-        const unsubscribeActivityLogs = onValue(
-          activityLogsRef,
-          async (snapshot) => {
-            if (snapshot.exists()) {
-              // Trigger a refresh of the groups data (same as above)
-              const userGroupsSnapshot = await get(userGroupsRef);
-              if (userGroupsSnapshot.exists()) {
-                const userGroups = userGroupsSnapshot.val();
-                const groupIds = Object.keys(userGroups);
-                // Process groups again (same as above)
-                const groupPromises = groupIds.map(async (chatroomId) => {
-                  try {
-                    const [
-                      chatroomSnap,
-                      userStatusSnap,
-                      messagesSnap,
-                      activitySnap,
-                    ] = await Promise.all([
-                      get(dbRef(db, `chatrooms/${chatroomId}`)),
-                      get(dbRef(db, `chatroom_users/${chatroomId}/${userId}`)),
-                      get(
-                        rtdbQuery(
-                          dbRef(db, `chatrooms/${chatroomId}/messages`),
-                          orderByChild("createdAt"),
-                          limitToLast(1)
-                        )
-                      ),
-                      get(
-                        rtdbQuery(
-                          dbRef(db, `chatrooms/${chatroomId}/activity_logs`),
-                          orderByChild("timestamp"),
-                          limitToLast(1)
-                        )
-                      ),
-                    ]);
 
-                    const chatroomData = chatroomSnap.exists()
-                      ? chatroomSnap.val()
-                      : null;
-                    const userStatus = userStatusSnap.exists()
-                      ? userStatusSnap.val()
-                      : { isPinned: false };
-                    let lastMessage = null;
-                    let lastMessageTime = null;
-                    let lastMessageType = null;
+        const unsubscribeMessages = onValue(messagesRef, refreshGroups);
+        const unsubscribeActivities = onValue(activityLogsRef, refreshGroups);
 
-                    const lastRegularMessage = messagesSnap.exists()
-                      ? Object.values(messagesSnap.val())[0]
-                      : null;
-                    const lastActivityLog = activitySnap.exists()
-                      ? Object.values(activitySnap.val())[0]
-                      : null;
-
-                    if (lastRegularMessage && lastActivityLog) {
-                      if (
-                        lastRegularMessage.createdAt > lastActivityLog.timestamp
-                      ) {
-                        lastMessage = await formatLastMessage(
-                          lastRegularMessage,
-                          userId,
-                          chatroomId
-                        );
-                        lastMessageTime = lastRegularMessage.createdAt;
-                        lastMessageType = lastRegularMessage.messageType;
-                        if (lastRegularMessage.isDeleted) {
-                          lastMessageType = "deleted";
-                          lastMessage = "This message has been deleted";
-                        }
-                      } else {
-                        lastMessage = lastActivityLog.details;
-                        lastMessageTime = lastActivityLog.timestamp;
-                        lastMessageType = "system";
-                      }
-                    } else if (lastRegularMessage) {
-                      lastMessage = await formatLastMessage(
-                        lastRegularMessage,
-                        userId,
-                        chatroomId
-                      );
-                      lastMessageTime = lastRegularMessage.createdAt;
-                      lastMessageType = lastRegularMessage.messageType;
-                      if (lastRegularMessage.isDeleted) {
-                        lastMessageType = "deleted";
-                        lastMessage = "This message has been deleted";
-                      }
-                    } else if (lastActivityLog) {
-                      lastMessage = lastActivityLog.details;
-                      lastMessageTime = lastActivityLog.timestamp;
-                      lastMessageType = "system";
-                    }
-
-                    return {
-                      id: chatroomId,
-                      name: chatroomData?.name || "Unnamed Group",
-                      photoUrl: chatroomData?.photoUrl || "/images/group.png",
-                      isPinned: userStatus.isPinned || false,
-                      isMuted: userStatus.isMuted || false,
-                      isDisband: chatroomData?.isDisband || false,
-                      lastMessage,
-                      lastMessageTime:
-                        lastMessageTime || chatroomData?.createdAt || 0,
-                      lastMessageType,
-                      unreadCount: await getUnreadCount(userId, chatroomId),
-                    };
-                  } catch (error) {
-                    console.warn(
-                      `Error processing group ${chatroomId}:`,
-                      error
-                    );
-                    return null;
-                  }
-                });
-
-                const groupsData = (await Promise.all(groupPromises)).filter(
-                  Boolean
-                );
-                const sortedGroups = sortGroups(groupsData);
-                groups.value = sortedGroups;
-                callback?.(sortedGroups);
-              }
-            }
-          }
-        );
-        unsubscribeCallbacks.push(unsubscribeActivityLogs);
+        unsubscribeCallbacks.push(unsubscribeMessages, unsubscribeActivities);
       });
     }
   );
 
-  // Store cleanup function
   groupsListenerCleanup = () => {
     unsubscribeUserGroups();
-    unsubscribeCallbacks.forEach((unsubscribe) => unsubscribe());
+    unsubscribeCallbacks.forEach((fn) => fn());
   };
-
-  return groupsListenerCleanup;
 };
 
 const getUserName = async (userId) => {
@@ -1192,12 +1378,7 @@ const checkIsGroupJoined = async (groupId) => {
 };
 
 watch(selectedGroupId, async (newGroupId, oldGroupId) => {
-  if (
-    oldGroupId &&
-    newGroupId !== oldGroupId &&
-    currentUserId.value &&
-    (await checkIsGroupJoined(newGroupId))
-  ) {
+  if (oldGroupId && newGroupId !== oldGroupId && currentUserId.value) {
     await set(
       dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
       Date.now()

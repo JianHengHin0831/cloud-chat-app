@@ -24,6 +24,7 @@
             <img
               :src="userData?.avatarUrl || '/images/user_avatar.png'"
               alt="User Avatar"
+              referrerpolicy="no-referrer"
               class="w-full h-full object-cover"
             />
           </div>
@@ -39,7 +40,7 @@
                 "
               ></span>
               <span class="text-sm text-gray-600 dark:text-gray-300">
-                {{ userData?.status === "online" ? "Online" : "Offline" }}
+                {{ userData?.status ? userData?.status : "Offline" }}
               </span>
             </div>
           </div>
@@ -82,7 +83,7 @@
         </div>
 
         <!-- Last Active -->
-        <div v-if="userData?.lastActive">
+        <div v-if="userData?.lastActive && userData?.status != 'online'">
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Last Active
           </h4>
@@ -102,7 +103,7 @@
         </div>
 
         <!-- Joined At -->
-        <div>
+        <div v-if="member.formatJoinedTime">
           <h4 class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Joined Group
           </h4>
@@ -208,18 +209,23 @@ const fetchUserData = async () => {
     }
 
     if (advancedSettings.activityVisibility === "everyone") {
-      publicData.status = snapshot.child("status").val() || "offline";
-      publicData.lastActive = snapshot.child("lastActive").val() || null;
-
-      if (advancedSettings.showExactTime !== false) {
-        publicData.advancedSettings = {
-          bio: snapshot.child("advancedSettings/bio").val(),
-          status: snapshot.child("advancedSettings/status").val(),
-        };
-      }
+      const status1 = snapshot.child("status").val();
+      publicData.status = status1.state || "offline";
+      publicData.lastActive = status1.lastActive || null;
+      console.log(advancedSettings);
+    } else {
+      publicData.status = "Hidden";
     }
 
+    publicData.advancedSettings = {
+      bio:
+        advancedSettings.bio ||
+        "The bio went on vacation… and never came back.",
+      status: advancedSettings.status || "available",
+    };
+
     userData.value = publicData;
+    console.log(publicData);
 
     const joinedAtRef = dbRef(
       db,
@@ -329,6 +335,7 @@ const formatTime = async (timestamp) => {
 };
 
 const formatJoinedTime = async () => {
+  console.log(props.member);
   if (props.member.joinedAt) {
     props.member.formattedJoinedTime = await formatTimeFromUtils(
       props.member.joinedAt

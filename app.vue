@@ -148,6 +148,9 @@ const initNetworkListener = () => {
 onMounted(() => {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
+      if (!user.emailVerified) {
+        return;
+      }
       logEvent("user_login", {
         userId: user.uid,
         email: user.email,

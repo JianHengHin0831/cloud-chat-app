@@ -27,7 +27,9 @@
       </button>
 
       <button
-        v-if="props.currentRole === 'admin'"
+        v-if="
+          props.currentRole === 'admin' && auth.currentUser?.uid !== member.id
+        "
         @click="openTransferGroupOwnershipModal"
         class="w-full text-left p-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-200 rounded-md hover:bg-blue-600 dark:hover:bg-blue-700 my-1"
       >
@@ -240,6 +242,21 @@ const handleMuteClick = () => {
 const handleTransferGroupOwnership = async () => {
   try {
     await transferGroupOwnership(props.chatroomId, props.member.id);
+    await writeActivityLog(
+      props.chatroomId,
+      auth.currentUser?.uid,
+      `${await getUsername(
+        auth.currentUser?.uid
+      )} has transferred group ownership to ${props.member.username}`,
+      Date.now()
+    );
+    await sendNotification({
+      groupId: props.chatroomId,
+      title: "Group Ownership Transferred",
+      body: `The group has been transferred to ${props.member.username}`,
+      chatroomId: props.chatroomId,
+      isSaveNotification: true,
+    });
     emit("close");
   } catch (error) {
     console.error("Error transferring group ownership:", error);

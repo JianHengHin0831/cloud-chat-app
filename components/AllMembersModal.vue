@@ -25,6 +25,7 @@
           <img
             :src="member.avatarUrl"
             alt="avatar"
+            referrerpolicy="no-referrer"
             class="w-10 h-10 rounded-full mr-3"
           />
           <div class="flex flex-col">

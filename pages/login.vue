@@ -174,7 +174,7 @@
               <div class="flex items-center">
                 <input
                   type="checkbox"
-                  id="remember"
+                  v-model="rememberMe"
                   class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
                 />
                 <label
@@ -321,6 +321,7 @@ const emailError = ref("");
 const passwordError = ref("");
 const loginError = ref("");
 const isLoading = ref(false);
+const rememberMe = ref(false);
 
 // check if notifications are enabled and update token if needed
 const checkNotifications = async (userId) => {
@@ -355,6 +356,20 @@ const handleLogin = async () => {
     );
 
     const user = userCredential.user;
+    if (!user.emailVerified) {
+      loginError.value = "Please verify your email address before logging in.";
+      return;
+    }
+
+    await setPersistence(auth, browserLocalPersistence);
+
+    if (rememberMe.value) {
+      localStorage.setItem("rememberMe", "true");
+      localStorage.setItem("rememberedEmail", email.value);
+    } else {
+      localStorage.removeItem("rememberMe");
+      localStorage.removeItem("rememberedEmail");
+    }
 
     const userRef = dbRef(db, `users/${user.uid}/securitySettings`);
     const userSnapshot = await get(userRef);
@@ -579,4 +594,14 @@ const signInWithGoogle = async () => {
     isLoading.value = false;
   }
 };
+
+onMounted(() => {
+  const savedEmail = localStorage.getItem("rememberedEmail");
+  const savedRememberMe = localStorage.getItem("rememberMe");
+
+  if (savedRememberMe === "true" && savedEmail) {
+    email.value = savedEmail;
+    rememberMe.value = true;
+  }
+});
 </script>

@@ -72,11 +72,12 @@ export const useGroupApi = () => {
 
   const approveMember = async (
     groupId: string,
-    userId: string
+    userId: string,
+    joinedAt: number
   ): Promise<ApiResponse<GroupMember>> => {
     return apiFetch(`/groups/${groupId}/members/approve`, {
       method: "POST",
-      body: { userId },
+      body: { userId, joinedAt },
     });
   };
 

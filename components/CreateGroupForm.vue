@@ -107,9 +107,9 @@
         <button
           type="submit"
           class="bg-blue-500 dark:bg-blue-600 text-white px-4 py-2 rounded w-full hover:bg-blue-600 dark:hover:bg-blue-700"
-          :disabled="isLoading"
+          :disabled="isLoading || isDone"
         >
-          {{ isLoading ? "Creating..." : "Create Group" }}
+          {{ isLoading ? "Creating..." : isDone ? "Created" : "Create Group" }}
         </button>
       </form>
     </div>
@@ -125,6 +125,7 @@ const description = ref("");
 const chatType = ref("public");
 const photoFile = ref(null);
 const isLoading = ref(false);
+const isDone = ref(false);
 const message = ref(null);
 
 const openModal = () => {
@@ -192,9 +193,11 @@ const createGroup = async () => {
       type: "success",
       text: `Group created with ID: ${response.groupId}`,
     };
+    isDone.value = true;
 
     setTimeout(() => {
       closeModal();
+      isDone.value = false;
     }, 3000);
   } catch (error) {
     console.error("Error creating group:", error);

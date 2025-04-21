@@ -33,6 +33,7 @@
                   <img
                     :src="avatarUrl || '/images/user_avatar.png'"
                     alt="Profile Picture"
+                    referrerpolicy="no-referrer"
                     class="w-full h-full object-cover"
                   />
                 </div>
@@ -794,20 +795,6 @@ const saveProfile = async () => {
 
   try {
     isSaving.value = true;
-    //TO-DO:BACKEND
-    // const form = ref({
-    //   username: "",
-    //   advancedSettings: {
-    //     bio: "",
-    //     status: "online",
-    //     isOnline: true,
-    //     isLight: false,
-    //     showExactTime: true,
-    //     fontSize: "medium",
-    //     activityVisibility: "public",
-    //     showEmail: false,
-    //   },
-    // });
     const form = {
       username: userSettings.username,
       advancedSettings: {

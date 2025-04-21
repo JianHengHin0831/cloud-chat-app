@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
     });
   }
   const { groupId } = params;
-  const { userId } = await readBody(event);
+  const { userId, joinedAt } = await readBody(event);
   const authUser = await verifyAuth(event);
 
   const approverRef = adminDb.ref(`chatroom_users/${groupId}/${authUser.uid}`);
@@ -22,7 +22,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const userRef = adminDb.ref(`chatroom_users/${groupId}/${userId}`);
-  await userRef.set({ role: "user" });
+  await userRef.set({
+    role: "user",
+    joinedAt: joinedAt,
+    isPinned: false,
+    isMuted: false,
+  });
 
   const user1Ref = adminDb.ref(`user_chatrooms/${userId}/${groupId}`);
   await user1Ref.set(true);

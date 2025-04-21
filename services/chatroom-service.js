@@ -797,7 +797,9 @@ const processMessages = async (
 
           // only decrypt text messages
           if (
-            (message.messageType === "text" || !message.messageType) &&
+            (message.messageType === "text" ||
+              message.messageType === "file" ||
+              !message.messageType) &&
             message.messageContent
           ) {
             // create decrypt promise
@@ -914,9 +916,8 @@ export const addReaction = async (chatroomId, messageId, emojiId) => {
       db,
       `chatrooms/${chatroomId}/messages/${messageId}`
     );
-    const messageSnapshot = await get(
-      dbRef(db, `chatrooms/${chatroomId}/messages`)
-    );
+
+    const messageSnapshot = await get(messageRef);
 
     if (!messageSnapshot.exists()) {
       throw new Error("message does not exist");
@@ -928,7 +929,6 @@ export const addReaction = async (chatroomId, messageId, emojiId) => {
     // if user has already reacted to this emoji, remove reaction
     if (reactions[emojiId] && reactions[emojiId][currentUser]) {
       delete reactions[emojiId][currentUser];
-      // if emoji has no users, delete entire emoji object
       if (Object.keys(reactions[emojiId]).length === 0) {
         delete reactions[emojiId];
       }
@@ -936,7 +936,6 @@ export const addReaction = async (chatroomId, messageId, emojiId) => {
       if (!reactions[emojiId]) {
         reactions[emojiId] = {};
       }
-
       reactions[emojiId][currentUser] = true;
     }
 
@@ -1030,6 +1029,7 @@ export const setupMessagesListener = async (
       messagesQuery,
       async (messagesSnapshot) => {
         try {
+          console.log(messagesSnapshot.val());
           // get activity log snapshot
           const activitySnapshot = await get(activityLogsQuery);
 
@@ -1064,6 +1064,7 @@ export const setupMessagesListener = async (
           const messagesSnapshot = await get(messagesQuery);
 
           // process messages and activity logs
+          console.log(messagesSnapshot.val());
           const processedMessages = await processMessages(
             messagesSnapshot,
             activitySnapshot,
@@ -1204,6 +1205,7 @@ export const sendMessage = async (chatroomId, messageData) => {
     // if it's text message, encrypt content
     if (
       processedMessageData.messageType === "text" ||
+      processedMessageData.messageType === "file" ||
       !processedMessageData.messageType
     ) {
       try {
@@ -1238,9 +1240,11 @@ export const sendMessage = async (chatroomId, messageData) => {
     }
 
     const newMessageRef = push(dbRef(db, `chatrooms/${chatroomId}/messages`));
+
     await set(newMessageRef, {
-      ...processedMessageData,
       createdAt: serverTimestamp(),
+      ...processedMessageData,
+      timestamp: serverTimestamp(),
     });
 
     try {

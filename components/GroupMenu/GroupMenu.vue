@@ -76,7 +76,7 @@
         </li>
         <template v-if="!groupData.isDisband">
           <!-- Scheduled Messages -->
-          <li>
+          <!-- <li>
             <button
               @click="openScheduledMessages"
               class="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
@@ -97,7 +97,7 @@
               </svg>
               Scheduled Messages
             </button>
-          </li>
+          </li> -->
 
           <!-- Update Group Details (Admin only) -->
           <li v-if="isAdmin">
@@ -254,11 +254,12 @@ const isAdmin = computed(() => {
   const currentMember = props.membersData?.find(
     (m) => m.id === currentUser?.uid
   );
+  console.log(props.groupData);
   return currentMember?.role === "admin";
 });
 
 const emit = defineEmits(["toggleMenu"]);
-const { muteAllMembers } = useGroupApi();
+const { muteAllMembers, muteMember: muteMemberApi } = useGroupApi();
 
 const openLeaveGroup = () => {
   logEvent("open_leave_group_modal", {
@@ -371,14 +372,24 @@ const handleGlobalMuteClick = () => {
 
 const confirmGlobalMute = async () => {
   const startTime = Date.now();
+  const action = !props.groupData.isGlobalMuted;
+  console.log(action);
+  if (action === null) {
+    return;
+  }
   try {
-    await muteAllMembers(props.selectedGroupId, !props.groupData.isGlobalMuted);
+    console.log(action);
+    for (const member of props.membersData) {
+      if (member.id === auth.currentUser?.uid && action == true) continue;
+      await muteMemberApi(props.selectedGroupId, member.id, action);
+    }
+    await muteAllMembers(props.selectedGroupId, action);
 
     await writeActivityLog(
       props.selectedGroupId,
       auth.currentUser?.uid || "system",
       `${auth.currentUser?.displayName || "Admin"} has ${
-        props.groupData.isGlobalMuted ? "unmuted" : "muted"
+        action ? "muted" : "unmuted"
       } all members`
     );
 
@@ -407,6 +418,7 @@ const confirmGlobalMute = async () => {
 
     showGlobalMuteConfirmation.value = false;
     isMenuOpen.value = false;
+    console.log(props.groupData.isGlobalMuted);
   } catch (error) {
     console.error("Error toggling global mute:", error);
 
@@ -422,4 +434,14 @@ const confirmGlobalMute = async () => {
     trackMetric("global_mute_failure_count", 1);
   }
 };
+
+watch(
+  () => props.groupData.isGlobalMuted,
+  (newValue) => {
+    // if (newValue !== props.groupData.isGlobalMuted) {
+    //   showGlobalMuteConfirmation.value = false;
+    // }
+    console.log("Group global mute status changed:", newValue);
+  }
+);
 </script>

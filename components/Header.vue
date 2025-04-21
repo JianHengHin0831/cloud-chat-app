@@ -65,7 +65,7 @@
         <!-- Notification Panel -->
         <div
           v-show="showNotifications"
-          class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg z-50 max-h-96 overflow-y-auto"
+          class="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-lg z-[60] max-h-96 overflow-y-auto"
         >
           <div
             class="p-3 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-900"
@@ -82,7 +82,7 @@
 
           <p
             v-if="notifications.length === 0"
-            class="text-gray-500 text-sm p-4 text-center"
+            class="text-gray-500 dark:text-gray-400 text-sm p-4 text-center"
           >
             No notifications yet
           </p>
@@ -91,28 +91,34 @@
             <li
               v-for="notification in sortedNotifications"
               :key="notification.id"
-              class="p-3 border-b hover:bg-gray-50 transition-colors"
+              class="p-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               :class="{
-                'bg-gray-50': !notification.readAt,
+                'bg-gray-50 dark:bg-gray-800': !notification.readAt,
                 'cursor-pointer': !notification.readAt,
               }"
               @click="markAsRead(notification.id)"
             >
-              <div class="flex justify-between items-start">
+              <div class="relative">
                 <div>
                   <div class="flex justify-between items-baseline">
-                    <p class="font-medium text-sm">{{ notification.title }}</p>
-                    <span class="text-xs text-gray-400 ml-2 whitespace-nowrap">
+                    <p
+                      class="font-medium text-sm text-gray-900 dark:text-white"
+                    >
+                      {{ notification.title }}
+                    </p>
+                    <span
+                      class="text-xs text-gray-400 dark:text-gray-500 ml-2 whitespace-nowrap"
+                    >
                       {{ formatNotificationTime(notification.timestamp) }}
                     </span>
                   </div>
-                  <p class="text-xs text-gray-600 mt-1">
-                    {{ notification.body }}
+                  <p class="text-xs text-gray-600 dark:text-gray-400 mt-1 mr-5">
+                    {{ notification.chatroomName }}: {{ notification.body }}
                   </p>
                 </div>
                 <span
                   v-if="!notification.readAt"
-                  class="w-2 h-2 bg-blue-500 rounded-full ml-2 mt-1 flex-shrink-0"
+                  class="absolute right-2 top-6 w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full ml-2 mt-1 flex-shrink-0"
                 ></span>
               </div>
             </li>
@@ -133,6 +139,7 @@
               :src="avatarUrl || '/images/user_avatar.png'"
               class="w-full h-full rounded-full object-cover"
               alt="User Avatar"
+              referrerpolicy="no-referrer"
             />
             <span
               class="absolute bottom-0 right-0 w-2 h-2 sm:w-3 sm:h-3 bg-green-500 border-2 border-white rounded-full"
@@ -237,6 +244,14 @@ const showUserMenu = ref(false);
 const showPendingInvitation = ref(false);
 
 const pendingInvitations = ref([]);
+const getChatroomName = async (chatroomId) => {
+  const chatroomRef = dbRef(db, `chatrooms/${chatroomId}`);
+  const snapshot = await get(chatroomRef);
+  if (snapshot.exists()) {
+    return snapshot.val().name;
+  }
+  return "Unknown Chatroom";
+};
 
 // const fetchPendingInvitations = async () => {
 //   const user = auth.currentUser;
@@ -342,7 +357,7 @@ const joinGroup = async (groupId) => {
     await writeActivityLog(
       groupId,
       auth.currentUser?.uid,
-      `${await getUsername(auth.currentUser?.uid)} has joined the group"`,
+      `${await getUsername(auth.currentUser?.uid)} has joined the group`,
       joinedAt + 1
     );
     //await updateGroupKey(props.group.id);
@@ -440,24 +455,30 @@ const loadNotifications = () => {
     `users/${user.uid}/notifications`
   );
 
-  onValue(notificationsRef, (snapshot) => {
+  onValue(notificationsRef, async (snapshot) => {
     const data = snapshot.val();
-    notifications.value = data
-      ? Object.keys(data).map((key) => ({
-          id: key,
-          ...data[key],
-          timestamp:
-            typeof data[key].timestamp === "object"
-              ? Date.now()
-              : data[key].timestamp,
-          readAt:
-            data[key].readAt === undefined
-              ? null
-              : typeof data[key].readAt === "object"
-              ? Date.now()
-              : data[key].readAt,
-        }))
-      : [];
+
+    if (data) {
+      const promises = Object.keys(data).map(async (key) => ({
+        id: key,
+        ...data[key],
+        timestamp:
+          typeof data[key].timestamp === "object"
+            ? Date.now()
+            : data[key].timestamp,
+        readAt:
+          data[key].readAt === undefined
+            ? null
+            : typeof data[key].readAt === "object"
+            ? Date.now()
+            : data[key].readAt,
+        chatroomName: await getChatroomName(data[key].chatroomId),
+      }));
+
+      notifications.value = await Promise.all(promises);
+    } else {
+      notifications.value = [];
+    }
   });
 };
 
@@ -530,6 +551,26 @@ const toggleUserMenu = () => {
   if (showNotifications.value) showNotifications.value = false;
 };
 
+const userRef = dbRef(db, `users/${auth.currentUser?.uid}/avatarUrl`);
+
+let unsubscribe;
+
+watchEffect(() => {
+  if (!auth.currentUser?.uid) return;
+
+  const avatarRef = dbRef(db, `users/${auth.currentUser.uid}/avatarUrl`);
+  unsubscribe = onValue(avatarRef, (snapshot) => {
+    const url = snapshot.val();
+    if (url) {
+      avatarUrl.value = url;
+    }
+  });
+});
+
+onUnmounted(() => {
+  if (unsubscribe) unsubscribe();
+});
+
 // Fetch user data
 const fetchUserData = async () => {
   const user = auth.currentUser;
@@ -540,23 +581,32 @@ const fetchUserData = async () => {
 
   userName.value = user.displayName || "Anonymous";
   userEmail.value = user.email || "";
-  if (
+  const userRef = dbRef(db, `users/${user.uid}`);
+  const snapshot = await get(userRef);
+  if (snapshot.exists()) {
+    const userData = snapshot.val();
+    const avatarUrlFromDb = userData.avatarUrl;
+    if (avatarUrlFromDb) {
+      avatarUrl.value = avatarUrlFromDb;
+    }
+  } else if (
     user.providerData.some(
       (provider) => provider.providerId === "google.com"
     ) ||
-    user.photoURL.includes("googleusercontent.com")
+    user.photoURL?.includes("googleusercontent.com")
   ) {
     avatarUrl.value = user.photoURL;
   } else {
-    const storage = getStorage();
-    const avatarRef = storageRef(storage, `avatars/${user.uid}`);
-    try {
-      const url = await getDownloadURL(avatarRef);
-      avatarUrl.value = url;
-    } catch (error) {
-      console.error("Failed to fetch avatar from Storage:", error);
-      avatarUrl.value = "/images/user_avatar.png";
-    }
+    // const storage = getStorage();
+    // const avatarRef = storageRef(storage, `avatars/${user.uid}`);
+    // if (!avatarRef.val) return;
+    // try {
+    //   const url = await getDownloadURL(avatarRef);
+    //   avatarUrl.value = url;
+    // } catch (error) {
+    //   console.error("Failed to fetch avatar from Storage:", error);
+    //   avatarUrl.value = "/images/user_avatar.png";
+    // }
   }
 };
 

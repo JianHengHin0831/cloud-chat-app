@@ -24,6 +24,7 @@
           <img
             :src="user.avatarUrl"
             alt="avatar"
+            referrerpolicy="no-referrer"
             class="w-10 h-10 rounded-full mr-3"
           />
           <div class="flex flex-col">
@@ -51,7 +52,7 @@
         </li>
       </ul>
       <div v-else class="text-center text-gray-500 dark:text-gray-400">
-        No users found
+        No available users found
       </div>
 
       <!-- Pending user list -->
@@ -68,6 +69,7 @@
             <img
               :src="pendingUser.avatarUrl"
               alt="avatar"
+              referrerpolicy="no-referrer"
               class="w-10 h-10 rounded-full mr-3"
             />
             <div class="flex flex-col">
@@ -91,10 +93,12 @@
               {{
                 loadingStates[pendingUser.id] === "approving"
                   ? "Approving..."
-                  : loadingStates[pendingUser.id] === "success"
+                  : loadingStates[pendingUser.id] === "success1"
                   ? "Approved!"
                   : loadingStates[pendingUser.id] === "error"
                   ? "Failed"
+                  : loadingStates[pendingUser.id] === "success2"
+                  ? ""
                   : "Approve"
               }}
             </button>
@@ -106,10 +110,12 @@
               {{
                 loadingStates[pendingUser.id] === "rejecting"
                   ? "Rejecting..."
-                  : loadingStates[pendingUser.id] === "success"
+                  : loadingStates[pendingUser.id] === "success2"
                   ? "Rejected!"
                   : loadingStates[pendingUser.id] === "error"
                   ? "Failed"
+                  : loadingStates[pendingUser.id] === "success1"
+                  ? ""
                   : "Reject"
               }}
             </button>
@@ -131,6 +137,7 @@
             <img
               :src="invited.avatarUrl"
               alt="avatar"
+              referrerpolicy="no-referrer"
               class="w-10 h-10 rounded-full mr-3"
             />
             <div class="flex flex-col">
@@ -161,6 +168,7 @@
   <ConfirmAddMemberModal
     v-if="selectedUser"
     :user="selectedUser"
+    :groupId="props.groupId"
     @confirm="handleConfirmAddMember"
     @close="closeConfirmModal"
   />
@@ -220,11 +228,12 @@ const fetchAllUsers = async () => {
         continue;
 
       const showEmail = user?.advancedSettings?.showEmail ?? true;
+
       result.push({
         id,
         username: user.username || "",
         avatarUrl: user.avatarUrl || "",
-        email: showEmail ? user.email || "anonymous" : "anonymous",
+        email: showEmail ? user.email || id : id,
       });
     }
 
@@ -301,7 +310,7 @@ const handleConfirmAddMember = async () => {
     await sendNotification({
       userIds: [userId],
       title: "Group Invitation",
-      body: `You have been added to a group by ${
+      body: `You have been invited to a group by ${
         auth.currentUser?.displayName || "an admin"
       }`,
       chatroomId: props.groupId,
@@ -355,7 +364,7 @@ const approvePendingUser = async (id) => {
   try {
     await new Promise((r) => setTimeout(r, 1000));
     emit("approve-pending-user", id);
-    loadingStates.value[id] = "success";
+    loadingStates.value[id] = "success1";
     setTimeout(() => (loadingStates.value[id] = null), 1500);
 
     await sendNotification({
@@ -416,7 +425,7 @@ const rejectPendingUser = async (id) => {
   try {
     await new Promise((r) => setTimeout(r, 1000));
     emit("reject-pending-user", id);
-    loadingStates.value[id] = "success";
+    loadingStates.value[id] = "success2";
     setTimeout(() => (loadingStates.value[id] = null), 1500);
 
     await sendNotification({

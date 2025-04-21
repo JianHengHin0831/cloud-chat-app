@@ -13,6 +13,7 @@ export const sendNotification = async (params: {
 }) => {
   try {
     const user = auth.currentUser;
+    console.log("sendNotification params", params);
     if (!user) throw new Error("User not authenticated");
 
     if (

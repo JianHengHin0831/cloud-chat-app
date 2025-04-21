@@ -55,16 +55,16 @@ const confirmRemove = async () => {
   try {
     emit("confirm");
 
-    await sendNotification({
-      userIds: [props.member.id],
-      title: "Removed from Group",
-      body: `You have been removed from the group by ${
-        auth.currentUser?.displayName || "an admin"
-      }`,
-      chatroomId: props.groupId,
-      isSaveNotification: true,
-      excludeMuted: true,
-    });
+    // await sendNotification({
+    //   userIds: [props.member.id],
+    //   title: "Removed from Group",
+    //   body: `You have been removed from the group by ${
+    //     auth.currentUser?.displayName || "an admin"
+    //   }`,
+    //   chatroomId: props.groupId,
+    //   isSaveNotification: true,
+    //   excludeMuted: true,
+    // });
 
     await writeActivityLog(
       props.groupId,

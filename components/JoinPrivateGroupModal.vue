@@ -189,6 +189,13 @@ const handleJoin = async () => {
   try {
     const pendingRef = dbRef(db, `chatrooms/${groupId}/pending/${userId}`);
     await set(pendingRef, Date.now());
+    await sendNotification({
+      groupId: groupId,
+      title: "Someone wants to join group!",
+      body: `${await getUsername(userId)} requested to join group`,
+      chatroomId: groupId,
+      excludeMuted: true,
+    });
 
     successMessage.value = "✅ Join request sent successfully!";
     groupInfo.value.isPending = true;

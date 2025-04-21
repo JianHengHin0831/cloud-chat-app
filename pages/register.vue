@@ -297,7 +297,7 @@
             <div class="flex items-center mb-6">
               <input
                 type="checkbox"
-                id="terms"
+                v-model="terms"
                 class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
               />
               <label
@@ -305,7 +305,9 @@
                 class="ml-2 block text-sm text-gray-600 dark:text-gray-300"
               >
                 I agree to the
-                <a href="#" class="text-purple-500 hover:underline"
+                <a
+                  href="https://www.termsfeed.com/live/4b716cc1-c739-4b97-925d-b1df72dfefdb"
+                  class="text-purple-500 hover:underline"
                   >Terms and Conditions</a
                 >
               </label>
@@ -385,6 +387,7 @@ const registrationError = ref("");
 const verificationSent = ref(false);
 const isLoading = ref(false); // loading state
 const router = useRouter();
+const terms = ref(false);
 
 // validate email
 const validateEmail = () => {
@@ -427,10 +430,23 @@ const isFormValid = computed(() => {
 
 //check if user already exists
 const checkIfUserExists = async (email) => {
-  const emailKey = encodeEmailForRTDB(email);
-  const userRef = dbRef(db, `users/emailToUid/${emailKey}`);
-  const snapshot = await get(userRef);
-  return snapshot.exists();
+  const usersRef = dbRef(db, "users");
+  const snapshot = await get(usersRef);
+
+  if (!snapshot.exists()) return false;
+
+  const usersData = snapshot.val();
+
+  for (const userId in usersData) {
+    if (
+      usersData[userId].email &&
+      usersData[userId].email.toLowerCase() === email.toLowerCase()
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 };
 
 import { useUserApi } from "~/composables/useUserApi";
@@ -444,6 +460,11 @@ const handleRegister = async (event) => {
     validateEmail();
     validatePassword();
     if (!isFormValid.value) {
+      return;
+    }
+
+    if (terms.value === false) {
+      registrationError.value = "You must agree to the terms and conditions.";
       return;
     }
 
@@ -468,6 +489,10 @@ const handleRegister = async (event) => {
     const user = userCredential.user;
 
     await sendEmailVerification(user);
+    registrationError.value = "";
+    passwordError.value = "";
+    emailError.value = "";
+
     verificationSent.value = true;
 
     const interval = setInterval(async () => {
@@ -489,16 +514,9 @@ const handleRegister = async (event) => {
           registerMethod: "email",
           lastLogin: { ".sv": "timestamp" },
         };
+        await user.getIdToken(true);
 
-        const updates = {};
-        updates[`users/${user.uid}`] = userData;
-        updates[`users/emailToUid/${encodeEmailForRTDB(user.email)}`] =
-          user.uid;
-        updates[`usernames/${encodeUsernameForRTDB(displayName.value)}`] =
-          user.uid;
-
-        // await set(dbRef(db), updates);
-        await register(updates);
+        await set(dbRef(db, "users/" + user.uid), userData);
 
         router.push("/login");
       }
@@ -510,75 +528,6 @@ const handleRegister = async (event) => {
     isLoading.value = false;
   }
 };
-
-// const checkIfUserExists = async (email) => {
-//   const usersRef = doc(db, "users", email);
-//   const docSnap = await getDoc(usersRef);
-//   return docSnap.exists();
-// };
-
-// const handleRegister = async (event) => {
-//   event.preventDefault();
-
-//   try {
-//     validateEmail();
-//     validatePassword();
-//     if (!isFormValid.value) {
-//       return;
-//     }
-
-//     if (password.value !== confirmPassword.value) {
-//       passwordError.value = "Password and confirm password must match.";
-//       return;
-//     }
-
-//     const userExists = await checkIfUserExists(email.value);
-//     if (userExists) {
-//       registrationError.value = "This email is already registered.";
-//       return;
-//     }
-
-//     isLoading.value = true;
-
-//     const userCredential = await createUserWithEmailAndPassword(
-//       auth,
-//       email.value,
-//       password.value
-//     );
-//     const user = userCredential.user;
-
-//     await sendEmailVerification(user);
-//     verificationSent.value = true;
-
-//     const interval = setInterval(async () => {
-//       await user.reload();
-//       if (user.emailVerified) {
-//         clearInterval(interval);
-
-//         await updateProfile(user, {
-//           displayName: displayName.value,
-//         });
-
-//         await setDoc(doc(db, "users", user.uid), {
-//           username: displayName.value,
-//           email: user.email,
-//           createdAt: new Date().toISOString(),
-//           joinedAt: new Date().toISOString(),
-//           emailVerified: user.emailVerified,
-//           avatarUrl: null,
-//           registerMethod: "email",
-//         });
-
-//         router.push("/login");
-//       }
-//     }, 1000);
-//   } catch (error) {
-//     console.error("Registration error:", error);
-//     registrationError.value = `Registration failed: ${error.message}`;
-//   } finally {
-//     isLoading.value = false;
-//   }
-// };
 // Password visibility toggles
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);

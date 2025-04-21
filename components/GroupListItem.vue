@@ -53,10 +53,10 @@
       </div>
       <!-- Unread Count Badge -->
       <div
-        v-if="group.unreadCount > 0 && !isSelected"
+        v-if="lastReadCount > 0 && !isSelected"
         class="absolute -top-3 -left-3 bg-green-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center"
       >
-        {{ isSelected ? 0 : group.unreadCount }}
+        {{ isSelected ? 0 : lastReadCount }}
       </div>
     </div>
 
@@ -93,6 +93,14 @@
 
 <script setup>
 import { computed } from "vue";
+import {
+  ref as dbRef,
+  get,
+  query as rtdbQuery,
+  orderByChild,
+  startAt,
+} from "firebase/database";
+import { auth, db } from "~/firebase/firebase.js";
 
 const emit = defineEmits(["click"]);
 
@@ -110,6 +118,38 @@ const props = defineProps({
     required: true,
   },
 });
+
+const lastReadCount = ref(0);
+watch(
+  () => props.group,
+  async (selected) => {
+    if (!selected || !auth.currentUser.uid) return;
+
+    try {
+      const lastReadRef = dbRef(
+        db,
+        `chatroom_users/${props.group.id}/${auth.currentUser.uid}/lastRead`
+      );
+      const lastReadSnapshot = await get(lastReadRef);
+      const lastRead = lastReadSnapshot.exists() ? lastReadSnapshot.val() : 0;
+
+      const unreadQuery = rtdbQuery(
+        dbRef(db, `chatrooms/${props.group.id}/messages`),
+        orderByChild("createdAt"),
+        startAt(lastRead + 1)
+      );
+
+      const unreadSnapshot = await get(unreadQuery);
+      lastReadCount.value = unreadSnapshot.exists()
+        ? Object.keys(unreadSnapshot.val()).length
+        : 0;
+    } catch (error) {
+      console.warn(`Error getting unread count for ${props.group.id}:`, error);
+      lastReadCount.value = 0;
+    }
+  },
+  { deep: true }
+);
 
 // Ensure lastMessageTime is a number and check if it's within 30 minutes
 const isActive = computed(() => {

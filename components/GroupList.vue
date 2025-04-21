@@ -48,9 +48,15 @@
         <!-- Active Groups -->
         <div>
           <h3
-            class="mt-4 text-gray-600 dark:text-gray-400 font-semibold pb-2 border-b dark:border-gray-700"
+            class="mt-4 flex justify-between text-gray-600 dark:text-gray-400 font-semibold pb-2 border-b dark:border-gray-700"
           >
             Groups
+            <button
+              @click="openJoinModal"
+              class="bg-transparent text-blue-700 dark:text-blue-500 text-base font-bold px-1 py-1 hover:text-green-500 dark:hover:text-green-400 rounded-lg flex items-center"
+            >
+              + Private
+            </button>
           </h3>
           <ul v-if="filteredActiveGroups.length">
             <li
@@ -65,12 +71,6 @@
               />
             </li>
           </ul>
-          <button
-            @click="openJoinModal"
-            class="bg-transparent text-blue-700 dark:text-blue-500 font-bold px-1 py-1 hover:text-green-500 dark:hover:text-green-400 rounded-lg flex items-center"
-          >
-            + Join Private Group
-          </button>
         </div>
 
         <!-- Inactive Groups -->

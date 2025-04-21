@@ -362,7 +362,6 @@ const isFormValid = computed(() => {
   const hasContent =
     newMessage.value.messageContent.trim() !== "" ||
     selectedFiles.value.length > 0;
-
   const scheduledDate = new Date(newMessage.value.scheduledFor).getTime();
   const now = Date.now();
   const isValidFutureDate = !isNaN(scheduledDate) && scheduledDate > now;
@@ -450,8 +449,9 @@ const resetForm = () => {
   showEmojiPicker.value = false;
 
   // Set default scheduled time to 1 hour from now
+  //Malaysia time zone need to +8 hours
   const now = new Date();
-  now.setMinutes(now.getMinutes() + 61);
+  now.setMinutes(now.getMinutes() + 61 + 480);
   newMessage.value.scheduledFor = now.toISOString().slice(0, 16);
 };
 
@@ -731,8 +731,9 @@ onMounted(() => {
   fetchScheduledMessages();
 
   // Set default scheduled time to 1 hour from now
+  //Malaysia time zone need to +8 hours
   const now = new Date();
-  now.setMinutes(now.getMinutes() + 61);
+  now.setMinutes(now.getMinutes() + 61 + 480);
   newMessage.value.scheduledFor = now.toISOString().slice(0, 16);
 
   // Add click outside listener

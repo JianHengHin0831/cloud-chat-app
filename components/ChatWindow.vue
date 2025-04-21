@@ -26,7 +26,7 @@
         </button>
         <div class="flex items-center space-x-2">
           <div
-            class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center"
+            class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-100 flex items-center justify-center"
           >
             <img
               :src="groupData?.photoUrl || '/images/group.png'"
@@ -35,10 +35,12 @@
             />
           </div>
           <div class="status">
-            <h2 class="dark:text-white">{{ groupData?.name }}</h2>
+            <h2 class="text-sm xl:text-base dark:text-white">
+              {{ groupData?.name }}
+            </h2>
             <h2
               v-if="otherTypingUsers.length > 0"
-              class="text-sm text-gray-500 dark:text-gray-400"
+              class="text-xs text-gray-500 dark:text-gray-400"
             >
               {{ getUserName(otherTypingUsers[0]) }} is typing...
             </h2>
@@ -55,7 +57,7 @@
       <!-- Desktop Header -->
       <div class="hidden md:flex items-center space-x-2">
         <div
-          class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center"
+          class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-100 flex items-center justify-center"
         >
           <img
             :src="groupData?.photoUrl || '/images/group.png'"
@@ -85,7 +87,7 @@
         <!-- Mobile and MD Group Info Button -->
         <button
           @click="$emit('showGroupInfo')"
-          class="lg:hidden flex items-center"
+          class="lg:hidden flex space-x-2 mr-2 pr-1 pb-1 items-center"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -188,7 +190,7 @@
 
     <!-- Chat content -->
     <div
-      class="flex-1 overflow-y-auto max-h-[80vh] p-4 space-y-6 flex flex-col-reverse bg-white dark:bg-gray-800"
+      class="flex-1 overflow-y-auto max-h-[calc(80vh-90px)] md:max-h-[80vh] p-4 space-y-6 flex flex-col-reverse bg-white dark:bg-gray-800"
       @scroll="handleScroll"
       ref="chatContent"
     >
@@ -213,7 +215,8 @@
           <div class="flex items-start mr-2">
             <img
               :src="getUserAvatar(msg.senderId)"
-              class="w-10 h-10 rounded-full"
+              referrerpolicy="no-referrer"
+              class="w-10 h-10 rounded-full object-cover aspect-square"
             />
           </div>
 
@@ -246,7 +249,7 @@
                     : ''
                 "
               >
-                <p v-if="msg.isDeleted" class="text-sm break-all break-words">
+                <p v-if="msg.isDeleted" class="text-sm break-words px-5 py-2">
                   <span class="text-gray-500 italic">
                     This message has been deleted by
                     {{ getUserName(msg.isDeleted) }}
@@ -479,15 +482,12 @@
             <!-- Reactions -->
             <div
               v-if="msg.reactions && Object.keys(msg.reactions).length > 0"
-              class="message-reactions mt-1 flex justify-end"
+              class="message-reactions mt-1 flex justify-start bg-black/5 dark:bg-gray-400 w-fit rounded-xl"
             >
               <div
                 v-for="(users, emojiId) in msg.reactions"
                 :key="emojiId"
-                class="reaction-bubble"
-                :class="{
-                  'reaction-self': Object.keys(users).includes(userId),
-                }"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm cursor-pointer"
                 @click="showReactionDetails(msg.id)"
               >
                 <span class="emoji">{{ getEmojiById(emojiId) }}</span>
@@ -638,7 +638,7 @@
               >
                 <!-- Text Message -->
                 <!-- deleted message -->
-                <p v-if="msg.isDeleted" class="text-sm break-all break-words">
+                <p v-if="msg.isDeleted" class="text-sm break-words px-5 py-2">
                   <span class="text-gray-500 italic">
                     This message has been deleted by
                     {{ getUserName(msg.isDeleted) }}
@@ -808,21 +808,22 @@
             </div>
 
             <!-- Reactions -->
-
             <div
               v-if="msg.reactions && Object.keys(msg.reactions).length > 0"
               class="message-reactions mt-1 flex justify-end cursor-pointer"
             >
-              <div
-                v-for="(users, emojiId) in msg.reactions"
-                :key="emojiId"
-                class="reaction-bubble"
-                @click="showReactionDetails(msg.id)"
-              >
-                <span class="emoji">{{ getEmojiById(emojiId) }}</span>
-                <span class="reaction-count">{{
-                  Object.keys(users).length
-                }}</span>
+              <div class="bg-black/5 dark:bg-gray-400 w-fit rounded-xl">
+                <div
+                  v-for="(users, emojiId) in msg.reactions"
+                  :key="emojiId"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-sm cursor-pointer"
+                  @click="showReactionDetails(msg.id)"
+                >
+                  <span class="emoji">{{ getEmojiById(emojiId) }}</span>
+                  <span class="reaction-count">{{
+                    Object.keys(users).length
+                  }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -831,7 +832,8 @@
           <div class="flex items-start ml-2">
             <img
               :src="getUserAvatar(msg.senderId)"
-              class="w-10 h-10 rounded-full"
+              referrerpolicy="no-referrer"
+              class="w-10 h-10 rounded-full object-cover aspect-square"
             />
           </div>
         </template>
@@ -844,26 +846,6 @@
           Load more messages...
         </button>
       </div>
-      <button
-        v-show="showScrollButton"
-        @click="scrollToBottom"
-        class="absolute bottom-24 right-6 p-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-colors"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M19 14l-7 7m0 0l-7-7m7 7V3"
-          />
-        </svg>
-      </button>
     </div>
 
     <!-- Input area -->
@@ -905,7 +887,11 @@
           @click="selectMention(member)"
           class="flex items-center p-3 hover:bg-gray-100 cursor-pointer"
         >
-          <img :src="member.avatarUrl" class="w-8 h-8 rounded-full mr-2" />
+          <img
+            :src="member.avatarUrl"
+            referrerpolicy="no-referrer"
+            class="w-8 h-8 rounded-full mr-2 object-cover aspect-square"
+          />
           <span class="font-medium">{{ member.username }}</span>
         </div>
         <div
@@ -992,8 +978,6 @@
       <div
         class="bg-gray-100 rounded-2xl w-full flex justify-center items-center"
       >
-        <!-- Mention Button -->
-
         <input
           v-model="newMessage"
           type="text"
@@ -1028,8 +1012,7 @@
         </svg>
       </button>
     </div>
-    <!-- Media Viewer Component -->
-    <!-- <MediaViewer ref="mediaViewer" /> -->
+
     <div
       v-if="loading"
       class="fixed top-0 bottom-0 left-0 right-0 bg-gray-800/70 bg-opacity-70 z-50 flex items-center justify-center"
@@ -1067,25 +1050,49 @@
     </div>
 
     <!-- Modal box or pop-up box -->
-    <div v-if="showReactionModal" class="reaction-modal">
-      <div class="modal-content">
-        <span class="close" @click="closeReactionModal">&times;</span>
-        <h2>Reactions</h2>
-        <ul>
-          <!-- {{
-            reactionDetails
-          }} -->
-          <li v-for="(reaction, index) in reactionDetails" :key="index">
-            <ul v-for="(member1, index1) in reaction" :key="index1">
-              {{
-                props.membersData.find((member) => member.id === member1)
-                  ?.username || "User"
-              }}
-              reacted with
-              {{
-                getEmojiById(index)
-              }}
-            </ul>
+    <div
+      v-if="showReactionModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+    >
+      <div
+        class="bg-white dark:bg-gray-800 text-black dark:text-white rounded-xl shadow-lg p-6 w-full max-w-md relative"
+      >
+        <!-- Close button -->
+        <button
+          @click="closeReactionModal"
+          class="ml-auto text-gray-500 hover:text-red-500 dark:hover:text-red-400 absolute right-5 top-5 text-2xl"
+        >
+          &times;
+        </button>
+
+        <!-- Title -->
+        <h2 class="text-xl font-semibold mb-4">Reactions</h2>
+
+        <!-- Reaction bar -->
+        <div class="flex gap-2 mb-4 justify-center">
+          <button
+            v-for="(reaction, index) in reactionDetails"
+            :key="index"
+            @click="selectedIndex = index"
+            class="px-3 py-1 rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-lg"
+            :class="{ 'bg-gray-700 dark:bg-gray-400': selectedIndex == index }"
+          >
+            {{ getEmojiById(index) }}
+          </button>
+        </div>
+
+        <!-- User list -->
+        <ul class="space-y-2">
+          <li
+            v-for="(isReacted, memberId) in reactionDetails[selectedIndex] ||
+            {}"
+            :key="memberId"
+            class="text-sm border-b border-gray-200 dark:border-gray-700 pb-1"
+          >
+            {{
+              props.membersData.find((member) => member.id === memberId)
+                ?.username || "User"
+            }}
           </li>
         </ul>
       </div>
@@ -1126,7 +1133,7 @@ const isMuted = computed(() => {
   const member = props.membersData.find((member) => member.id === props.userId);
   return member?.isBanned || false;
 });
-
+const selectedIndex = ref(0);
 const emit = defineEmits(["loadMore", "back", "showGroupInfo"]);
 const isMenuOpen = ref(false);
 const toggleMenu = () => {
@@ -1167,6 +1174,7 @@ const extractFileName = (url) => {
   }
 
   try {
+    console.log("URL:", url);
     const urlObj = new URL(url);
     const pathname = decodeURIComponent(urlObj.pathname);
 
@@ -1183,7 +1191,7 @@ const extractFileName = (url) => {
 
     return nameParts;
   } catch (error) {
-    console.error("Error parsing URL:", error);
+    //console.error("Error parsing URL:", error);
     return "unknown-file";
   }
 };
@@ -1412,6 +1420,7 @@ const notifyNewMessage = async (groupId, senderName) => {
     title: "New Message",
     body: `${senderName} sent a message`,
     chatroomId: groupId,
+    isSaveNotification: false,
     excludeMuted: true,
   });
 };
@@ -1422,6 +1431,8 @@ const notifyFileUpload = async (groupId, fileName) => {
     title: "File Shared",
     body: `${auth.currentUser.displayName} shared ${fileName}`,
     chatroomId: groupId,
+    isSaveNotification: false,
+    excludeMuted: true,
   });
 };
 
@@ -1439,6 +1450,7 @@ const sendMessage = async () => {
 
   const startTime = Date.now();
   const messageContent = newMessage.value;
+  handleMention(messageContent);
   newMessage.value = "";
 
   logEvent("send_message_attempt", {
@@ -1480,6 +1492,7 @@ const sendMessage = async () => {
         }`,
         chatroomId: props.selectedGroupId,
         isSaveNotification: true,
+        excludeMuted: false,
       });
       mentionedUsers.value = [];
     }
@@ -1526,9 +1539,16 @@ const sendMessage = async () => {
   }
 };
 
-const handleMention = (userId) => {
-  if (!mentionedUsers.value.includes(userId)) {
-    mentionedUsers.value.push(userId);
+const handleMention = (mentionContent) => {
+  const mentionPattern = /@\{(.*?)\|.*?\}/g;
+  let match;
+
+  while ((match = mentionPattern.exec(mentionContent)) !== null) {
+    const userId = match[1];
+
+    if (!mentionedUsers.value.includes(userId)) {
+      mentionedUsers.value.push(userId);
+    }
   }
 };
 
@@ -1616,6 +1636,8 @@ const uploadFiles = async () => {
       updateFileProgress(tempId, 90);
       if (result.fileDetails && result.fileDetails.length > 0) {
         const fileDetail = result.fileDetails[0];
+        console.log("File uploaded successfully");
+        console.log("File details:", fileDetail);
         await sendMessageUtils(props.selectedGroupId, {
           senderId: user.uid,
           messageContent: fileDetail.url,
@@ -1708,6 +1730,7 @@ const messagesWithTimeMarkers = computed(() => {
   const result = [];
   let lastDate = null;
   let lastTimestamp = null;
+  console.log("props.messages", props.messages);
 
   props.messages.forEach((msg) => {
     if (!msg.createdAt) {
@@ -1810,12 +1833,14 @@ watch(
 
 // Filter members based on the mention query
 const filteredMembers = computed(() => {
-  if (!mentionQuery.value) {
-    return props.membersData || [];
-  }
+  console.log(props.membersData);
 
-  return (props.membersData || []).filter((member) =>
-    member.username.toLowerCase().includes(mentionQuery.value.toLowerCase())
+  return (props.membersData || []).filter(
+    (member) =>
+      member.username
+        .toLowerCase()
+        .includes(mentionQuery.value.toLowerCase()) &&
+      member.id !== auth.currentUser?.uid
   );
 });
 
@@ -1984,18 +2009,20 @@ onUnmounted(() => {
 const isReactionPickerVisible = ref(false);
 const selectedMessage = ref(null);
 const availableEmojis = ref([
-  { id: "1", emoji: "👍" },
-  { id: "2", emoji: "❤️" },
-  { id: "3", emoji: "😂" },
-  { id: "4", emoji: "😮" },
-  { id: "5", emoji: "😢" },
-  { id: "6", emoji: "🙏" },
-  { id: "7", emoji: "👏" },
-  { id: "8", emoji: "🎉" },
-  { id: "9", emoji: "🤔" },
-  { id: "10", emoji: "💪" },
-  { id: "11", emoji: "🙌" },
-  { id: "12", emoji: "💯" },
+  { id: "1", emoji: "👍" }, // Like
+  { id: "2", emoji: "❤️" }, // Love
+  { id: "3", emoji: "😂" }, // Haha
+  { id: "4", emoji: "😮" }, // Wow
+  { id: "5", emoji: "😢" }, // Sad
+  { id: "6", emoji: "😡" }, // Angry
+  { id: "7", emoji: "🙄" }, // Eye roll
+  { id: "8", emoji: "😤" }, // Huff / annoyed
+  { id: "9", emoji: "🤯" }, // Mind blown
+  { id: "10", emoji: "🤬" }, // Swearing angry
+  { id: "11", emoji: "😭" }, // Cry loudly
+  { id: "12", emoji: "😎" }, // Cool
+  { id: "13", emoji: "🤡" }, // Clown (mock)
+  { id: "14", emoji: "🤔" }, // Thinking
 ]);
 
 const showReactionPicker = (message) => {
@@ -2005,6 +2032,7 @@ const showReactionPicker = (message) => {
 
 const closeReactionPicker = () => {
   isReactionPickerVisible.value = false;
+  selectedMessageForMenu.value = null;
   selectedMessage.value = null;
 };
 
@@ -2034,6 +2062,9 @@ const reactionDetails = ref({});
 const showReactionDetails = (msgId) => {
   const currentReaction = props.messages.find((msg) => msg.id === msgId);
   reactionDetails.value = currentReaction.reactions;
+  const keys = Object.keys(reactionDetails.value).map(Number);
+  selectedIndex.value = keys.length > 0 ? Math.min(...keys) : 0;
+
   showReactionModal.value = true;
 };
 
@@ -2336,16 +2367,6 @@ video {
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
-}
-
-.reaction-bubble {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 6px;
-  border-radius: 12px;
-  background-color: rgba(0, 0, 0, 0.05);
-  font-size: 0.9em;
 }
 
 .reaction-self {

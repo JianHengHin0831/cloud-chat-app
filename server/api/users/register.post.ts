@@ -17,8 +17,6 @@ export default defineEventHandler(async (event) => {
 
   const updates = {
     [`users/${user.uid}`]: userData,
-    [`users/emailToUid/${encodeEmailForRTDB(user.email)}`]: user.uid,
-    [`usernames/${encodeUsernameForRTDB(displayName)}`]: user.uid,
   };
 
   await adminDb.ref().update(updates);
