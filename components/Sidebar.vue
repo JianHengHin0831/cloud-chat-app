@@ -58,7 +58,6 @@ const isActivePage = (path) => route.path === path;
 onMounted(() => {
   onAuthStateChanged(auth, (user) => {
     if (user) {
-      console.log("User is signed in:", user);
       fetchUserAvatar();
     } else {
       avatarUrl.value = "/images/user_avatar.png";
@@ -86,7 +85,6 @@ const fetchUserAvatar = async () => {
     } else {
       avatarUrl.value = "/images/user_avatar.png";
     }
-    console.log("User avatar not found in the database.");
   } catch (error) {
     console.error("Error fetching user avatar:", error);
     avatarUrl.value = "/images/user_avatar.png";

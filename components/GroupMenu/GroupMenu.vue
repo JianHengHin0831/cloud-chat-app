@@ -254,7 +254,6 @@ const isAdmin = computed(() => {
   const currentMember = props.membersData?.find(
     (m) => m.id === currentUser?.uid
   );
-  console.log(props.groupData);
   return currentMember?.role === "admin";
 });
 
@@ -373,12 +372,11 @@ const handleGlobalMuteClick = () => {
 const confirmGlobalMute = async () => {
   const startTime = Date.now();
   const action = !props.groupData.isGlobalMuted;
-  console.log(action);
+
   if (action === null) {
     return;
   }
   try {
-    console.log(action);
     for (const member of props.membersData) {
       if (member.id === auth.currentUser?.uid && action == true) continue;
       await muteMemberApi(props.selectedGroupId, member.id, action);
@@ -418,7 +416,6 @@ const confirmGlobalMute = async () => {
 
     showGlobalMuteConfirmation.value = false;
     isMenuOpen.value = false;
-    console.log(props.groupData.isGlobalMuted);
   } catch (error) {
     console.error("Error toggling global mute:", error);
 
@@ -434,14 +431,4 @@ const confirmGlobalMute = async () => {
     trackMetric("global_mute_failure_count", 1);
   }
 };
-
-watch(
-  () => props.groupData.isGlobalMuted,
-  (newValue) => {
-    // if (newValue !== props.groupData.isGlobalMuted) {
-    //   showGlobalMuteConfirmation.value = false;
-    // }
-    console.log("Group global mute status changed:", newValue);
-  }
-);
 </script>

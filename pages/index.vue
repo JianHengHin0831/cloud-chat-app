@@ -240,7 +240,6 @@ const fetchMessages = async (groupId, loadMore = false) => {
       groupId,
       (newMessages) => {
         try {
-          console.log("New messages received:", newMessages);
           if (loadMore) {
             messages.value = [...messages.value, ...newMessages];
           } else {
@@ -1211,7 +1210,6 @@ const setupGroupsRealtimeListener = (userId, callback) => {
         callback?.([]);
         return;
       }
-      console.log("Refreshing groups...");
       if (selectedGroupId.value) await fetchMessages(selectedGroupId.value);
 
       const userGroups = userGroupsSnapshot.val();
@@ -1378,24 +1376,18 @@ const checkIsGroupJoined = async (groupId) => {
 };
 
 watch(selectedGroupId, async (newGroupId, oldGroupId) => {
-  if (oldGroupId && newGroupId !== oldGroupId && currentUserId.value) {
-    await set(
-      dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
-      Date.now()
-    );
-    await set(
-      dbRef(db, `chatroom_users/${oldGroupId}/${currentUserId.value}/lastRead`),
-      Date.now()
-    );
-  }
+  await set(
+    dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
+    Date.now() + 5000
+  );
+  await set(
+    dbRef(db, `chatroom_users/${oldGroupId}/${currentUserId.value}/lastRead`),
+    Date.now() + 5000
+  );
 });
 
 onBeforeUnmount(async () => {
-  if (
-    selectedGroupId.value &&
-    currentUserId.value &&
-    (await checkIsGroupJoined(selectedGroupId.value))
-  ) {
+  if (selectedGroupId.value && currentUserId.value) {
     set(
       dbRef(
         db,
@@ -1440,11 +1432,7 @@ window.addEventListener("beforeunload", async () => {
 
 // Use Firebase onDisconnected to ensure logging in the event of network outages
 const markLastReadOnDisconnect = async () => {
-  if (
-    selectedGroupId.value &&
-    currentUserId.value &&
-    (await checkIsGroupJoined(selectedGroupId.value))
-  ) {
+  if (selectedGroupId.value && currentUserId.value) {
     const lastReadRef = dbRef(
       db,
       `chatroom_users/${selectedGroupId.value}/${currentUserId.value}/lastRead`

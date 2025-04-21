@@ -53,7 +53,6 @@ export const useUserApi = () => {
       };
     }
   ): Promise<ApiResponse<UserProfile>> => {
-    console.log("updateProfile", userId, payload);
     return apiFetch(`/users/${userId}/profile`, {
       method: "PUT",
       body: payload,

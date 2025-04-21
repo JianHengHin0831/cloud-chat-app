@@ -15,7 +15,6 @@ export default defineEventHandler(async (event) => {
     });
   }
   try {
-    console.log(username);
     await adminDb.ref(`users/${userId}`).update({ username: username });
     await adminDb
       .ref(`users/${userId}/advancedSettings`)

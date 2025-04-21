@@ -306,7 +306,6 @@ watch(
         ...groupLastReadCount.value,
         [group.id]: count,
       };
-      console.log(groupLastReadCount.value);
     });
   },
   { deep: true }
@@ -315,13 +314,11 @@ watch(
 const getLastReadCount = async (group) => {
   if (!auth.currentUser.uid) return;
   try {
-    console.log(group.id);
     const lastReadRef = dbRef(
       db,
       `chatroom_users/${group.id}/${auth.currentUser.uid}/lastRead`
     );
     const lastReadSnapshot = await get(lastReadRef);
-    console.log(lastReadSnapshot.val());
     const lastRead = lastReadSnapshot.exists() ? lastReadSnapshot.val() : 0;
 
     const unreadQuery = rtdbQuery(

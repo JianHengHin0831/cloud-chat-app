@@ -69,6 +69,20 @@
             </p>
           </div>
 
+          <!-- Group Image Upload -->
+          <div>
+            <label
+              class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+              >Group Image</label
+            >
+            <input
+              type="file"
+              accept="image/*"
+              @change="handleImageUpload"
+              class="mt-1 block w-full text-sm text-gray-900 dark:text-gray-100"
+            />
+          </div>
+
           <!-- Chat Type -->
           <div>
             <label
@@ -105,7 +119,7 @@
 </template>
 
 <script setup>
-import { db, auth } from "~/firebase/firebase.js";
+import { db, auth, storage } from "~/firebase/firebase.js";
 import { logEvent, trackMetric } from "~/utils/logging";
 import { sendNotification } from "~/utils/sendNotification";
 import { writeActivityLog } from "~/utils/activityLog";
@@ -125,6 +139,25 @@ const form = ref({
 const showSuccessMessage = ref(false);
 const showErrorMessage = ref(false);
 const isProcessing = ref(false);
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "firebase/storage";
+
+const selectedImageFile = ref(null);
+const previewImage = ref(null);
+
+const uploadFile = async (file) => {
+  if (!file) return null;
+
+  const fileRef = storageRef(
+    storage,
+    `scheduledMessages/${props.groupId}/${Date.now()}_${file.name}`
+  );
+  await uploadBytes(fileRef, file);
+  return await getDownloadURL(fileRef);
+};
 
 const notifyGroupUpdate = async (groupId) => {
   await sendNotification({
@@ -138,6 +171,7 @@ const notifyGroupUpdate = async (groupId) => {
 };
 
 import { useGroupApi } from "~/composables/useGroupApi";
+import { ref as dbRef, set } from "firebase/database";
 const { updateGroup: updateGroupApi } = useGroupApi();
 const previousForm = ref({
   name: props.groupData.name,
@@ -145,11 +179,26 @@ const previousForm = ref({
   chatType: props.groupData.chatType,
 });
 
+const handleImageUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    previewImage.value = file;
+  }
+};
+
 const updateGroup = async () => {
   const startTime = Date.now();
   try {
     isProcessing.value = true;
     //previousForm.value = form.value;
+    if (previewImage.value) {
+      const photoUrl = await uploadFile(previewImage.value);
+      const groupImageRef = dbRef(
+        db,
+        `chatrooms/${props.groupData.id}/photoUrl`
+      );
+      await set(groupImageRef, photoUrl);
+    }
 
     await updateGroupApi(props.groupData.id, form.value);
     await notifyGroupUpdate(props.groupData.id);
@@ -202,6 +251,7 @@ const updateGroup = async () => {
     }, 3000);
   } finally {
     isProcessing.value = false;
+    previewImage.value = null;
   }
 };
 
@@ -220,6 +270,10 @@ const updateGroupLog = async (oldData) => {
 
     if (form.value.chatType !== oldData.chatType) {
       changes.push(`changed group type to ${form.value.chatType}`);
+    }
+
+    if (previewImage.value) {
+      changes.push("updated the group image");
     }
 
     if (changes.length > 0) {

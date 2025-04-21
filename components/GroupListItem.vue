@@ -121,9 +121,40 @@ const props = defineProps({
 
 const lastReadCount = ref(0);
 watch(
+  () => props.isSelected,
+  async () => {
+    if (!auth.currentUser.uid) return;
+
+    try {
+      const lastReadRef = dbRef(
+        db,
+        `chatroom_users/${props.group.id}/${auth.currentUser.uid}/lastRead`
+      );
+      const lastReadSnapshot = await get(lastReadRef);
+      const lastRead = lastReadSnapshot.exists() ? lastReadSnapshot.val() : 0;
+
+      const unreadQuery = rtdbQuery(
+        dbRef(db, `chatrooms/${props.group.id}/messages`),
+        orderByChild("createdAt"),
+        startAt(lastRead + 1)
+      );
+
+      const unreadSnapshot = await get(unreadQuery);
+      lastReadCount.value = unreadSnapshot.exists()
+        ? Object.keys(unreadSnapshot.val()).length
+        : 0;
+    } catch (error) {
+      console.warn(`Error getting unread count for ${props.group.id}:`, error);
+      lastReadCount.value = 0;
+    }
+  },
+  { deep: true }
+);
+
+watch(
   () => props.group,
-  async (selected) => {
-    if (!selected || !auth.currentUser.uid) return;
+  async () => {
+    if (!props.group || !auth.currentUser.uid) return;
 
     try {
       const lastReadRef = dbRef(

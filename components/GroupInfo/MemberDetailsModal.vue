@@ -212,7 +212,6 @@ const fetchUserData = async () => {
       const status1 = snapshot.child("status").val();
       publicData.status = status1.state || "offline";
       publicData.lastActive = status1.lastActive || null;
-      console.log(advancedSettings);
     } else {
       publicData.status = "Hidden";
     }
@@ -225,7 +224,6 @@ const fetchUserData = async () => {
     };
 
     userData.value = publicData;
-    console.log(publicData);
 
     const joinedAtRef = dbRef(
       db,
@@ -335,7 +333,6 @@ const formatTime = async (timestamp) => {
 };
 
 const formatJoinedTime = async () => {
-  console.log(props.member);
   if (props.member.joinedAt) {
     props.member.formattedJoinedTime = await formatTimeFromUtils(
       props.member.joinedAt

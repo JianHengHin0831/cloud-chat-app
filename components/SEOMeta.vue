@@ -27,29 +27,44 @@ const props = defineProps({
   },
 });
 
+const siteUrl = "https://my-nuxt-app-b8742.web.app";
+
 const route = useRoute();
-const fullUrl = computed(() => `https://yourdomain.com${route.path}`);
+const fullUrl = computed(() =>
+  `${siteUrl}${route.fullPath}`.replace(/\/$/, "")
+);
+const imageUrl = computed(
+  () => props.image || `${siteUrl}/images/cloud_logo_dark_big.png`
+);
+const title = computed(
+  () => props.title || "CloudTalk - Real-time Group Chat Application"
+);
+const description = computed(
+  () =>
+    props.description ||
+    "Connect with people worldwide in real-time with our chat platform. Join conversations, meet new friends, and find new interest."
+);
 
 useHead({
-  title: props.title,
+  title: title.value,
   meta: [
-    { name: "description", content: props.description },
+    { name: "description", content: description.value },
     { name: "keywords", content: props.keywords },
 
     // Open Graph
-    { property: "og:title", content: props.title },
-    { property: "og:description", content: props.description },
-    { property: "og:image", content: props.image },
+    { property: "og:title", content: title.value },
+    { property: "og:description", content: description.value },
+    { property: "og:image", content: imageUrl.value },
     { property: "og:url", content: fullUrl.value },
     { property: "og:type", content: "website" },
 
     // Twitter
     { name: "twitter:card", content: "summary_large_image" },
-    { name: "twitter:title", content: props.title },
-    { name: "twitter:description", content: props.description },
-    { name: "twitter:image", content: props.image },
+    { name: "twitter:title", content: title.value },
+    { name: "twitter:description", content: description.value },
+    { name: "twitter:image", content: imageUrl.value },
 
-    // No-index if needed
+    // No-index
     ...(props.noIndex ? [{ name: "robots", content: "noindex" }] : []),
   ],
   link: [{ rel: "canonical", href: fullUrl.value }],

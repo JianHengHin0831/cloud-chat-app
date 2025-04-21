@@ -1029,7 +1029,6 @@ export const setupMessagesListener = async (
       messagesQuery,
       async (messagesSnapshot) => {
         try {
-          console.log(messagesSnapshot.val());
           // get activity log snapshot
           const activitySnapshot = await get(activityLogsQuery);
 
@@ -1064,7 +1063,6 @@ export const setupMessagesListener = async (
           const messagesSnapshot = await get(messagesQuery);
 
           // process messages and activity logs
-          console.log(messagesSnapshot.val());
           const processedMessages = await processMessages(
             messagesSnapshot,
             activitySnapshot,

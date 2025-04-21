@@ -31,7 +31,7 @@
             <img
               :src="groupData?.photoUrl || '/images/group.png'"
               alt="Group Avatar"
-              class="w-8 h-8 rounded-full"
+              class="w-8 h-8 rounded-full aspect-square"
             />
           </div>
           <div class="status">
@@ -62,7 +62,7 @@
           <img
             :src="groupData?.photoUrl || '/images/group.png'"
             alt="Group Avatar"
-            class="w-8 h-8 rounded-full"
+            class="w-8 h-8 rounded-full aspect-square"
           />
         </div>
         <div class="status">
@@ -1101,7 +1101,7 @@
 </template>
 
 <script setup>
-import { ref as dbRef, set, onValue } from "firebase/database";
+import { ref as dbRef, set, onValue, off } from "firebase/database";
 import { db, auth } from "~/firebase/firebase.js";
 import GroupMenu from "~/components/GroupMenu/GroupMenu.vue";
 import { ref, computed, watch, nextTick } from "vue";
@@ -1174,7 +1174,6 @@ const extractFileName = (url) => {
   }
 
   try {
-    console.log("URL:", url);
     const urlObj = new URL(url);
     const pathname = decodeURIComponent(urlObj.pathname);
 
@@ -1636,8 +1635,6 @@ const uploadFiles = async () => {
       updateFileProgress(tempId, 90);
       if (result.fileDetails && result.fileDetails.length > 0) {
         const fileDetail = result.fileDetails[0];
-        console.log("File uploaded successfully");
-        console.log("File details:", fileDetail);
         await sendMessageUtils(props.selectedGroupId, {
           senderId: user.uid,
           messageContent: fileDetail.url,
@@ -1698,7 +1695,11 @@ const toggleEmojiPicker = () => {
 // Get user profile picture
 const getUserAvatar = (senderId) => {
   const member = props.membersData.find((member) => member.id === senderId);
-  return member ? member.avatarUrl : "/images/group.png";
+  if (member && member.avatarUrl) {
+    return member.avatarUrl;
+  }
+
+  return "/images/user_avatar.png";
 };
 
 // Get username
@@ -1730,7 +1731,6 @@ const messagesWithTimeMarkers = computed(() => {
   const result = [];
   let lastDate = null;
   let lastTimestamp = null;
-  console.log("props.messages", props.messages);
 
   props.messages.forEach((msg) => {
     if (!msg.createdAt) {
@@ -1833,8 +1833,6 @@ watch(
 
 // Filter members based on the mention query
 const filteredMembers = computed(() => {
-  console.log(props.membersData);
-
   return (props.membersData || []).filter(
     (member) =>
       member.username
@@ -1975,29 +1973,52 @@ const formatOnlineUsers = (users) => {
 };
 
 const updateTypingStatus = debounce((isTyping) => {
-  if (!props.selectedGroupId || !auth.currentUser?.uid) return;
+  if ((!props.selectedGroupId && isTyping) || !auth.currentUser?.uid) return;
   set(typingRef.value, {
     isTyping,
     timestamp: Date.now(),
   });
 }, 500);
 const otherTypingUsers = ref([]);
-onMounted(() => {
-  const groupTypingRef = dbRef(db, `chatrooms/${props.selectedGroupId}/typing`);
-  onValue(groupTypingRef, (snapshot) => {
-    const typingData = snapshot.val() || {};
-    const activeTypers = Object.entries(typingData)
-      .filter(
-        ([uid, data]) =>
-          //uid !== auth.currentUser?.uid &&
-          data.isTyping && Date.now()
-      )
-      .map(([uid]) => uid);
 
-    otherTypingUsers.value = activeTypers.filter(
-      (uid) => uid !== auth.currentUser?.uid
-    );
-  });
+let unsubscribeTyping = null;
+onMounted(() => {
+  watch(
+    () => props.selectedGroupId,
+    (newGroupId, oldGroupId) => {
+      // 移除旧监听
+      if (unsubscribeTyping) {
+        unsubscribeTyping();
+        unsubscribeTyping = null;
+      }
+
+      if (!newGroupId) return;
+
+      const groupTypingRef = dbRef(db, `chatrooms/${newGroupId}/typing`);
+
+      const unsubscribe = onValue(groupTypingRef, (snapshot) => {
+        const typingData = snapshot.val() || {};
+        const activeTypers = Object.entries(typingData)
+          .filter(([uid, data]) => data.isTyping)
+          .map(([uid]) => uid);
+
+        otherTypingUsers.value = activeTypers.filter(
+          (uid) => uid !== auth.currentUser?.uid
+        );
+      });
+
+      // 保存清除函数
+      unsubscribeTyping = () => off(groupTypingRef);
+    },
+    { immediate: true }
+  );
+});
+
+onBeforeUnmount(() => {
+  if (unsubscribeTyping) {
+    unsubscribeTyping();
+    unsubscribeTyping = null;
+  }
 });
 
 onUnmounted(() => {
