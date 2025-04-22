@@ -428,16 +428,16 @@ const rejectPendingUser = async (id) => {
     loadingStates.value[id] = "success2";
     setTimeout(() => (loadingStates.value[id] = null), 1500);
 
-    await sendNotification({
-      userIds: [id],
-      title: "Group Request Rejected",
-      body: `Your request to join the group has been rejected by ${
-        auth.currentUser?.displayName || "an admin"
-      }`,
-      chatroomId: props.groupId,
-      isSaveNotification: true,
-      excludeMuted: true,
-    });
+    // await sendNotification({
+    //   userIds: [id],
+    //   title: "Group Request Rejected",
+    //   body: `Your request to join the group has been rejected by ${
+    //     auth.currentUser?.displayName || "an admin"
+    //   }`,
+    //   chatroomId: props.groupId,
+    //   isSaveNotification: true,
+    //   excludeMuted: true,
+    // });
 
     const pendingUser = props.pendingUsers.find((user) => user.id === id);
     await writeActivityLog(

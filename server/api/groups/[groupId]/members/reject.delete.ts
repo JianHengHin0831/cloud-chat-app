@@ -22,7 +22,6 @@ export default defineEventHandler(async (event) => {
   if (!["admin", "moderator"].includes(requesterRole)) {
     throw createError({ statusCode: 403, message: "Insufficient permissions" });
   }
-  // const pendingRef = dbRef(db, `chatrooms/${newValue}/pending/${userId}`);
   await adminDb.ref(`chatrooms/${groupId}/pending/${userId}`).remove();
   return { success: true };
 });

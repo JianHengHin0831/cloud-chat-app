@@ -1378,12 +1378,12 @@ const checkIsGroupJoined = async (groupId) => {
 watch(selectedGroupId, async (newGroupId, oldGroupId) => {
   await set(
     dbRef(db, `chatroom_users/${oldGroupId}/${currentUserId.value}/lastRead`),
-    Date.now() + 5000
+    Date.now() + 2000
   );
 
   await set(
     dbRef(db, `chatroom_users/${newGroupId}/${currentUserId.value}/lastRead`),
-    Date.now() + 5000
+    Date.now() + 2000
   );
 });
 

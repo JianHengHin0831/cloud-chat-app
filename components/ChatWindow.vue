@@ -879,7 +879,7 @@
       <!-- Mention Dropdown -->
       <div
         v-if="showMentionDropdown"
-        class="absolute bottom-full left-0 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-y-auto z-20 mention-dropdown"
+        class="absolute bottom-full left-0 w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 max-h-60 overflow-y-auto z-20 mention-dropdown"
       >
         <div
           v-for="member in filteredMembers"

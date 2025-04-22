@@ -45,8 +45,8 @@
             View All Members
           </button>
           <button
-            @click="openAddMemberModal"
             v-if="checkGroupAdmin"
+            @click="openAddMemberModal"
             class="ml-2 text-blue-500 dark:text-blue-400 text-sm"
           >
             Add Members
@@ -523,6 +523,19 @@ const checkGroupAdmin = computed(() => {
 
 watch(
   () => props.selectedGroupId,
+  async () => {
+    if (props.selectedGroupId && checkGroupAdmin.value) {
+      await fetchPendingUsers(props.selectedGroupId);
+      await listenToPendingInvitations(props.selectedGroupId);
+    } else {
+      pendingUsers.value = [];
+      pendingInvitedUsers.value = [];
+    }
+  }
+);
+
+watch(
+  () => props.currentRole,
   async () => {
     if (props.selectedGroupId && checkGroupAdmin.value) {
       await fetchPendingUsers(props.selectedGroupId);
