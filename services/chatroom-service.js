@@ -347,9 +347,6 @@ const updateSendingChain = async (
   }
 };
 
-// relaxed mode - attempt decryption even if HMAC verification fails
-const LENIENT_MODE = true;
-
 // update receiving chain with new message key
 const updateReceivingChain = async (
   ratchetState,
@@ -609,7 +606,7 @@ const decryptWithRatchet = async (
       combinedKey
     ).toString(CryptoJS.enc.Base64);
 
-    if (computedHmac !== mac && !LENIENT_MODE) {
+    if (computedHmac !== mac) {
       throw new Error("message authentication failed");
     }
 
