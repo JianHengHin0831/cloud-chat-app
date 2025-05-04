@@ -1101,10 +1101,10 @@
 </template>
 
 <script setup>
-import { ref as dbRef, set, onValue, off } from "firebase/database";
+import { ref as dbRef, set, onValue, off, remove } from "firebase/database";
 import { db, auth } from "~/firebase/firebase.js";
 import GroupMenu from "~/components/GroupMenu/GroupMenu.vue";
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, onUnmounted } from "vue";
 import {
   sendMessage as sendMessageUtils,
   handleFileUploadResponse,
@@ -1845,6 +1845,8 @@ watch(
     showMentionDropdown.value = false;
     mentionQuery.value = "";
     mentionStartIndex.value = -1;
+    newMessage.value = "";
+    console.log("reset");
   }
 );
 
@@ -1964,12 +1966,13 @@ const closeAllArea = () => {
 };
 
 import { debounce } from "lodash-es";
-const typingRef = computed(() =>
-  dbRef(
+const typingRef = computed(() => {
+  if (!props.selectedGroupId || !auth.currentUser?.uid) return null;
+  return dbRef(
     db,
-    `chatrooms/${props.selectedGroupId}/typing/${auth.currentUser?.uid}`
-  )
-);
+    `chatrooms/${props.selectedGroupId}/typing/${auth.currentUser.uid}`
+  );
+});
 
 const onlineMembers = computed(() =>
   props.membersData.filter((member) => member.status === "online")
@@ -2282,6 +2285,21 @@ watch(
     updateLock = false;
   },
   { deep: true }
+);
+
+watch(
+  () => props.selectedGroupId,
+  (newGroupId, oldGroupId) => {
+    const userId = auth.currentUser?.uid;
+
+    if (oldGroupId && userId) {
+      const oldTypingRef = dbRef(
+        db,
+        `chatrooms/${oldGroupId}/typing/${userId}`
+      );
+      remove(oldTypingRef);
+    }
+  }
 );
 </script>
 
