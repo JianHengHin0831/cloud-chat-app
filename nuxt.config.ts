@@ -116,13 +116,13 @@ export default defineNuxtConfig({
   // @ts-ignore
   vuefire: {
     config: {
-      apiKey: "AIzaSyAk7UITYRxCKdyms5JWD_4Wn-b6mEzJbr0",
-      authDomain: "my-nuxt-app-b8742.firebaseapp.com",
-      projectId: "my-nuxt-app-b8742",
-      storageBucket: "my-nuxt-app-b8742.firebasestorage.app",
-      messagingSenderId: "433505340364",
-      appId: "1:433505340364:web:721396c426b03677ce2b69",
-      measurementId: "G-75LWWWXX3H",
+      apiKey: process.env.FIREBASE_API_KEY,
+      authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.FIREBASE_APP_ID,
+      measurementId: process.env.FIREBASE_MEASUREMENT_ID,
     },
   },
   tailwindcss: {

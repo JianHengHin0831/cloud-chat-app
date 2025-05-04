@@ -75,30 +75,6 @@
           </button>
         </li>
         <template v-if="!groupData.isDisband">
-          <!-- Scheduled Messages -->
-          <!-- <li>
-            <button
-              @click="openScheduledMessages"
-              class="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-5 w-5 mr-3 text-gray-500 dark:text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              Scheduled Messages
-            </button>
-          </li> -->
-
           <!-- Update Group Details (Admin only) -->
           <li v-if="isAdmin">
             <button
@@ -175,6 +151,17 @@
             </button>
           </li>
         </template>
+        <template v-else>
+          <li v-if="isAdmin">
+            <button
+              @click="handleDeleteGroupContent"
+              class="flex items-center w-full px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/50 transition-colors duration-150"
+            >
+              <Icon icon="lucide:trash-2" class="w-4 h-4 mr-2" />
+              Delete All Group Content
+            </button>
+          </li>
+        </template>
       </ul>
     </div>
   </div>
@@ -219,6 +206,15 @@
     @close="showGlobalMuteConfirmation = false"
     @confirm="confirmGlobalMute"
   />
+  <ConfirmationModal
+    v-if="showDeleteContentConfirmation"
+    title="Delete All Content?"
+    message="Are you sure you want to delete ALL messages and activity logs for this group? This action cannot be undone."
+    confirmButtonText="Delete"
+    confirmButtonClass="bg-red-600 hover:bg-red-700 text-white"
+    @close="showDeleteContentConfirmation = false"
+    @confirm="confirmDeleteGroupContent"
+  />
 </template>
 
 <script setup>
@@ -234,11 +230,15 @@ import { useGroupApi } from "~/composables/useGroupApi";
 import { logEvent, trackMetric } from "~/utils/logging";
 import { sendNotification } from "~/utils/sendNotification";
 import { writeActivityLog } from "~/utils/activityLog";
+import { Icon } from "@iconify/vue";
+import { ref as dbRef, remove } from "firebase/database";
+import { db } from "~/firebase/firebase.js";
 
 const props = defineProps({
   selectedGroupId: String,
   groupData: Object,
   membersData: Array,
+  isCurrentUserAdmin: Boolean,
 });
 
 const isMenuOpen = ref(false);
@@ -248,6 +248,7 @@ const isDisbandGroupOpen = ref(false);
 const isLeaveGroupOpen = ref(false);
 const isScheduledMessagesOpen = ref(false);
 const showGlobalMuteConfirmation = ref(false);
+const showDeleteContentConfirmation = ref(false);
 
 const isAdmin = computed(() => {
   const currentUser = auth.currentUser;
@@ -429,6 +430,89 @@ const confirmGlobalMute = async () => {
     });
 
     trackMetric("global_mute_failure_count", 1);
+  }
+};
+
+const handleDeleteGroupContent = () => {
+  logEvent("open_delete_group_content_confirmation", {
+    groupId: props.selectedGroupId,
+    userId: auth.currentUser?.uid,
+    groupName: props.groupData?.name,
+    timestamp: new Date().toISOString(),
+  });
+
+  showDeleteContentConfirmation.value = true;
+  isMenuOpen.value = false;
+};
+
+const confirmDeleteGroupContent = async () => {
+  showDeleteContentConfirmation.value = false;
+
+  if (!isAdmin.value) {
+    console.error("Permission denied: Only admins can delete group content.");
+    logEvent("delete_group_content_permission_denied", {
+      groupId: props.selectedGroupId,
+      userId: auth.currentUser?.uid,
+      groupName: props.groupData?.name,
+    });
+    return;
+  }
+
+  const startTime = Date.now();
+  const groupId = props.selectedGroupId;
+  const userId = auth.currentUser?.uid;
+  const groupName = props.groupData?.name || "Unknown Group";
+
+  logEvent("delete_group_content_attempt", {
+    groupId,
+    userId,
+    groupName,
+    timestamp: new Date().toISOString(),
+  });
+
+  try {
+    await writeActivityLog(
+      groupId,
+      userId,
+      `${
+        auth.currentUser?.displayName || "Admin"
+      } initiated deletion of all group messages and activity logs.`
+    );
+
+    const messagesRef = dbRef(db, `chatrooms/${groupId}/messages`);
+    const activityLogsRef = dbRef(db, `chatrooms/${groupId}/activity_logs`);
+
+    await remove(messagesRef);
+    await remove(activityLogsRef);
+
+    const duration = Date.now() - startTime;
+    logEvent("delete_group_content_success", {
+      groupId,
+      userId,
+      groupName,
+      duration,
+      timestamp: new Date().toISOString(),
+    });
+    trackMetric("delete_group_content_duration", duration, {
+      group_id: groupId,
+    });
+    trackMetric("delete_group_content_success_count", 1, { group_id: groupId });
+
+    console.log("Group messages and activity logs have been deleted.");
+  } catch (error) {
+    console.error("Error deleting group content:", error);
+    const duration = Date.now() - startTime;
+    logEvent("delete_group_content_failure", {
+      groupId,
+      userId,
+      groupName,
+      error: error.message,
+      duration,
+      timestamp: new Date().toISOString(),
+    });
+    trackMetric("delete_group_content_failure_count", 1, { group_id: groupId });
+
+    console.error("Failed to delete group content. Please try again.");
   }
 };
 </script>

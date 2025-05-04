@@ -610,42 +610,59 @@ const fetchUserData = async () => {
   }
 };
 
-// Handle logout
-const handleLogout = async () => {
+// Helper function to remove token in the background
+const removeFcmTokenInBackground = async (userId) => {
   try {
-    const user = auth.currentUser;
-    if (user) {
-      const messaging = getMessaging();
-      const fcmToken = await getToken(messaging);
-      if (fcmToken) {
-        const userRef = dbRef(db, `users/${user.uid}/fcmTokens`);
-        const snapshot = await get(userRef);
+    const messaging = getMessaging();
+    const fcmToken = await getToken(messaging).catch((err) => {
+      console.warn("Could not get FCM token for removal during logout:", err);
+      return null;
+    });
 
-        if (snapshot.exists()) {
-          const tokens = snapshot.val();
-          if (tokens && tokens[fcmToken]) {
-            const updates = {};
-            updates[`users/${user.uid}/fcmTokens/${fcmToken}`] = null;
-            await update(dbRef(db), updates);
-          }
-        }
+    if (!fcmToken) {
+      return;
+    }
+
+    const userRef = dbRef(db, `users/${userId}/fcmTokens`);
+    const snapshot = await get(userRef);
+
+    if (snapshot.exists()) {
+      const tokens = snapshot.val();
+      if (tokens && tokens[fcmToken]) {
+        const updates = {};
+        updates[`users/${userId}/fcmTokens/${fcmToken}`] = null;
+        await update(dbRef(db), updates);
       }
     }
-    await auth.signOut();
-    showUserMenu.value = false;
-    navigateTo("/login");
   } catch (error) {
-    console.error("Logout failed:", error);
+    console.error(
+      "Error removing FCM token in background during logout:",
+      error
+    );
   }
 };
 
-// Add this function to the script section
-const navigateToUserProfile = () => {
-  showUserMenu.value = false; // Close the menu
-  navigateTo("/profile"); // Navigate to profile page
-};
+const handleLogout = async () => {
+  const user = auth.currentUser;
+  const userId = user?.uid;
 
-// Initialize
+  try {
+    await auth.signOut();
+    showUserMenu.value = false;
+    navigateTo("/login");
+
+    if (userId) {
+      removeFcmTokenInBackground(userId);
+    } else {
+    }
+  } catch (error) {
+    console.error("Logout failed during sign out or navigation:", error);
+  }
+};
+const navigateToUserProfile = () => {
+  showUserMenu.value = false;
+  navigateTo("/profile");
+};
 onMounted(() => {
   window.addEventListener("click", handleClickOutside);
   onAuthStateChanged(auth, (user) => {

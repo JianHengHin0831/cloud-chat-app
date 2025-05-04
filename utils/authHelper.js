@@ -148,7 +148,7 @@ function verifyTOTPCode(secret, code) {
   const now = Math.floor(Date.now() / 1000);
 
   const currentCode = generateTOTPCode(secret, now);
-  const prevCode = generateTOTPCode(secret, now - timeStep);
+  const prevCode = generateTOTPCode(secret, now - window);
   const nextCode = generateTOTPCode(secret, now + timeStep);
 
   return code === currentCode || code === prevCode || code === nextCode;

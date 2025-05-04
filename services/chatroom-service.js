@@ -1330,19 +1330,12 @@ const processMembers = async (usersSnapshot) => {
         : "anonymous";
 
     // 2. status information processing
-    if (
-      !Object.keys(advancedSettings).includes("isOnline") ||
-      advancedSettings.isOnline
-    ) {
-      member.status = statusSnapshot.child("state").val() || "offline";
-      member.lastActive =
-        advancedSettings.showLastActive !== false
-          ? statusSnapshot.child("lastActive").val() || null
-          : "hidden";
-    } else {
-      member.status = "hidden";
-      member.lastActive = "hidden";
-    }
+
+    member.status = statusSnapshot.child("state").val() || "offline";
+    member.lastActive =
+      advancedSettings.showLastActive !== false
+        ? statusSnapshot.child("lastActive").val() || null
+        : "hidden";
 
     members.push(member);
   }

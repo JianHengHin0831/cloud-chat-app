@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
             .get();
 
           if (!groupKeySnapshot.exists()) {
-            throw new Error("群组加密密钥不存在");
+            throw new Error("group key not found");
           }
 
           const rawGroupKey = groupKeySnapshot.val();
@@ -128,7 +128,12 @@ export default defineEventHandler(async (event) => {
         return Buffer.from(encryptedBuffer);
       }
     } catch (error) {
-      console.error("Error fetching or decrypting file:", error);
+      console.error(
+        "Error fetching or decrypting file:",
+        error,
+        url,
+        chatroomId
+      );
       return { error: "Failed to fetch or decrypt file", status: 500 };
     }
   } catch (error) {
