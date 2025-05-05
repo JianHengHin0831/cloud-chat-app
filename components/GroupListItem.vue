@@ -85,14 +85,14 @@
       ></span>
 
       <span class="text-xs text-gray-400 leading-none flex-shrink-0"
-        >{{ formatTime(group.lastMessageTime) }}
+        >{{ formattedTimeString }}
       </span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref, onMounted, onUnmounted, watch } from "vue";
 import {
   ref as dbRef,
   get,
@@ -120,6 +120,28 @@ const props = defineProps({
 });
 
 const lastReadCount = ref(0);
+
+const formattedTimeString = ref("");
+
+const updateFormattedTime = () => {
+  formattedTimeString.value = formatTime(props.group.lastMessageTime);
+};
+
+let intervalId = null;
+
+onMounted(() => {
+  updateFormattedTime();
+  intervalId = setInterval(updateFormattedTime, 1000);
+});
+
+onUnmounted(() => {
+  if (intervalId) {
+    clearInterval(intervalId);
+  }
+});
+
+watch(() => props.group.lastMessageTime, updateFormattedTime);
+
 watch(
   () => props.isSelected,
   async () => {

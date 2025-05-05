@@ -126,7 +126,33 @@
           <!-- Global Mute (Admin only) -->
           <li v-if="isAdmin">
             <button
-              @click="handleGlobalMuteClick"
+              @click="handleGlobalMuteClick(true)"
+              class="flex items-center w-full px-4 py-3 text-sm text-red-700 dark:text-red-400 hover:bg-red-50 dark:hover:bg-gray-700 transition-colors duration-150"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 512 512"
+                class="h-5 w-5 mr-3 text-red-500 dark:text-red-400"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  clip-rule="evenodd"
+                  d="M407.5,307.6c5.7-16.6,8.5-34.1,8.5-51.6v-32c0-8.8-7.2-16-16-16s-16,7.2-16,16v32
+      c0,8.8-0.9,17.3-2.6,25.6L407.5,307.6z M326.8,362.7c-58.9,39.1-138.3,23-177.4-35.8c-13.9-21-21.4-45.6-21.4-70.8v-32
+      c0-8.8-7.2-16-16-16s-16,7.2-16,16v32c0,82.2,62.2,151,144,159.2V480h-96c-8.8,0-16,7.2-16,16c0,8.9,7.2,16,16,16h224
+      c8.8,0,16-7.1,16-16c0-8.8-7.2-16-16-16h-96v-64.8c28.1-2.8,54.9-13,77.7-29.5L326.8,362.7z M352,252.2V96.1
+      c0-53-42.9-96-95.9-96.1c-41.2,0-77.8,26.2-91,65.2L352,252.2z M160,195.9l143.5,143.5c-46,26.3-104.7,10.2-130.9-35.8
+      c-8.2-14.5-12.6-30.9-12.6-47.6V195.9z M436.6,427.3l-384-384l22.7-22.6l384,384L436.6,427.3z"
+                />
+              </svg>
+
+              Mute All Members
+            </button>
+          </li>
+          <li v-if="isAdmin">
+            <button
+              @click="handleGlobalMuteClick(false)"
               class="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
             >
               <svg
@@ -143,11 +169,8 @@
                   d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
                 />
               </svg>
-              {{
-                groupData.isGlobalMuted
-                  ? "Unmute All Members"
-                  : "Mute All Members"
-              }}
+
+              Unmute All Members
             </button>
           </li>
         </template>
@@ -197,9 +220,9 @@
   <!-- Confirmation Modal -->
   <ConfirmationModal
     v-if="showGlobalMuteConfirmation"
-    :title="groupData.isGlobalMuted ? 'Unmute All Members' : 'Mute All Members'"
+    :title="!isMuteAction ? 'Unmute All Members' : 'Mute All Members'"
     :message="
-      groupData.isGlobalMuted
+      !isMuteAction
         ? 'Are you sure you want to unmute all members?'
         : 'Are you sure you want to mute all members?'
     "
@@ -359,7 +382,8 @@ const closeScheduledMessages = () => {
   isScheduledMessagesOpen.value = false;
 };
 
-const handleGlobalMuteClick = () => {
+const isMuteAction = ref(false);
+const handleGlobalMuteClick = (isMute) => {
   logEvent("open_global_mute_confirmation", {
     groupId: props.selectedGroupId,
     userId: auth.currentUser?.uid,
@@ -367,12 +391,13 @@ const handleGlobalMuteClick = () => {
     currentMuteState: props.groupData.isGlobalMuted,
     timestamp: new Date().toISOString(),
   });
+  isMuteAction.value = isMute;
   showGlobalMuteConfirmation.value = true;
 };
 
 const confirmGlobalMute = async () => {
   const startTime = Date.now();
-  const action = !props.groupData.isGlobalMuted;
+  const action = isMuteAction.value;
 
   if (action === null) {
     return;
@@ -417,6 +442,7 @@ const confirmGlobalMute = async () => {
 
     showGlobalMuteConfirmation.value = false;
     isMenuOpen.value = false;
+    isMuteAction.value = false;
   } catch (error) {
     console.error("Error toggling global mute:", error);
 
