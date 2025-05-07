@@ -27,10 +27,12 @@ export const sendNotification = async (params: {
     }
 
     let targetUserIds = params.userIds || [];
+
     if (params.groupId) {
       const groupMembers = await getGroupMembers(
         params.groupId,
-        params.excludeMuted ?? true
+        params.excludeMuted ?? true,
+        user.uid
       );
       targetUserIds = Array.from(new Set([...targetUserIds, ...groupMembers]));
     }
@@ -67,7 +69,8 @@ export const sendNotification = async (params: {
 // get group member ids
 const getGroupMembers = async (
   groupId: string,
-  excludeMuted: boolean
+  excludeMuted: boolean,
+  currentUserId: string
 ): Promise<string[]> => {
   const groupRef = dbRef(db, `chatroom_users/${groupId}`);
   const snapshot = await get(groupRef);
@@ -80,6 +83,8 @@ const getGroupMembers = async (
   snapshot.forEach((childSnapshot) => {
     const userId = childSnapshot.key;
     const userData = childSnapshot.val();
+
+    if (currentUserId === userId) return;
 
     if (excludeMuted && userData.isMuted) return;
 

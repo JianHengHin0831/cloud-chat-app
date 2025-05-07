@@ -217,6 +217,15 @@
     @close="closeLeaveGroup"
   />
 
+  <div
+    v-if="loading"
+    class="fixed top-0 bottom-0 left-0 right-0 bg-gray-800/70 bg-opacity-70 z-[100] flex items-center justify-center"
+  >
+    <div
+      class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-white"
+    ></div>
+  </div>
+
   <!-- Confirmation Modal -->
   <ConfirmationModal
     v-if="showGlobalMuteConfirmation"
@@ -272,6 +281,7 @@ const isLeaveGroupOpen = ref(false);
 const isScheduledMessagesOpen = ref(false);
 const showGlobalMuteConfirmation = ref(false);
 const showDeleteContentConfirmation = ref(false);
+const loading = ref(false);
 
 const isAdmin = computed(() => {
   const currentUser = auth.currentUser;
@@ -396,6 +406,7 @@ const handleGlobalMuteClick = (isMute) => {
 };
 
 const confirmGlobalMute = async () => {
+  loading.value = true;
   const startTime = Date.now();
   const action = isMuteAction.value;
 
@@ -443,6 +454,7 @@ const confirmGlobalMute = async () => {
     showGlobalMuteConfirmation.value = false;
     isMenuOpen.value = false;
     isMuteAction.value = false;
+    loading.value = false;
   } catch (error) {
     console.error("Error toggling global mute:", error);
 

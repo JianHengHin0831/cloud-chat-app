@@ -1521,19 +1521,6 @@ const sendMessage = async () => {
     trackMetric("add_member_duration", 80, {
       group_id: props.groupId,
     });
-
-    // trackMetric("remove_member_failure_count", 1, {
-    //   group_id: props.selectedGroupId,
-    // });
-
-    // trackMetric("disband_group_failure_count", 1, {
-    //   group_id: props.selectedGroupId,
-    // });
-
-    console.log("send_message_success_count", 1, {
-      group_id: props.selectedGroupId,
-      message_type: "text",
-    });
   } catch (error) {
     console.error("Error sending message:", error);
     markMessageFailed(tempId);
