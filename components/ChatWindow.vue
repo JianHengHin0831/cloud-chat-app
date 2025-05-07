@@ -892,11 +892,11 @@
             referrerpolicy="no-referrer"
             class="w-8 h-8 rounded-full mr-2 object-cover aspect-square"
           />
-          <span class="font-medium">{{ member.username }}</span>
+          <span class="font-medium dark:text-white">{{ member.username }}</span>
         </div>
         <div
           v-if="filteredMembers.length === 0"
-          class="p-3 text-gray-500 text-center"
+          class="p-3 text-gray-500 dark:text-white text-center"
         >
           No users found
         </div>
