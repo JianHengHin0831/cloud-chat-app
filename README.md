@@ -1,75 +1,43 @@
-# Nuxt Minimal Starter
+# Cloud Chat App
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+A **cloud-based group messaging platform** built with **Nuxt.js** and **Google Cloud Platform (GCP)**.  
+This project is designed to provide **real-time, secure, and scalable communication**, similar to WhatsApp, but with a stronger focus on **group interactions**.
 
-## Setup
+---
 
-Make sure to install dependencies:
+## 🚀 Features
+- **Real-time Messaging**: Low-latency chat powered by cloud infrastructure
+- **Group Conversations**: Create and manage chat groups seamlessly
+- **End-to-End Encryption**: Secure communication for privacy protection
+- **Scalability**: Built on GCP for high availability and load handling
+- **User Authentication**: Secure login and user management
+- **Responsive UI**: Modern and mobile-friendly interface with Nuxt.js
 
-```bash
-# npm
-npm install
+---
 
-# pnpm
-pnpm install
+## Tech Stack
+- **Frontend**: Nuxt.js (Vue framework)
+- **Backend / Cloud Services**: Google Cloud Platform (Firebase, Cloud Functions, etc.)
+- **Database**: Firebase Realtime Database
+- **Authentication**: Firebase Authentication
+- **Encryption**: End-to-end encryption for secure chats
+- **Deployment**: GCP Hosting 
 
-# yarn
-yarn install
+---
 
-# bun
-bun install
-```
+## Purpose
+The project demonstrates:
+- How to design a **cloud-native web application**  
+- Integration of **real-time communication** features with modern frontend frameworks  
+- Implementation of **security** (E2E encryption, authentication) in a chat system  
+- **Scalability** using GCP cloud services  
 
-## Development Server
+---
 
-Start the development server on `http://localhost:3000`:
+## Status
+This is a **full-stack project** built for learning and demonstration purposes.  
+It can be extended with features such as:
+- Voice/video calls  
+- Message delivery receipts  
+- Admin controls for group management  
 
-```bash
-# npm
-npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
-# npm
-npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
-```
-
-Locally preview production build:
-
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
