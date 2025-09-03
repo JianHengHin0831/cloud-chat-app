@@ -34,13 +34,6 @@ The project demonstrates:
 
 ---
 
-## Status
-This is a **full-stack project** built for learning and demonstration purposes.  
-It can be extended with features such as:
-- Voice/video calls  
-- Message delivery receipts  
-- Admin controls for group management  
-
 ## Online deployment
 https://my-nuxt-app-b8742.web.app/
 
