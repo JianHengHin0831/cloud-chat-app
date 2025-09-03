@@ -3,7 +3,7 @@
 A **cloud-based group messaging platform** built with **Nuxt.js** and **Google Cloud Platform (GCP)**.  
 This project is designed to provide **real-time, secure, and scalable communication**, similar to WhatsApp, but with a stronger focus on **group interactions**.
 
-**You can see complete report in /report folder**.
+**You can see complete report/details in /report folder**.
 
 ---
 
