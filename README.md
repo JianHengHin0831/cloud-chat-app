@@ -41,3 +41,6 @@ It can be extended with features such as:
 - Message delivery receipts  
 - Admin controls for group management  
 
+## Online deployment
+https://my-nuxt-app-b8742.web.app/
+
